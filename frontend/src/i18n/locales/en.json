@@ -201,7 +201,8 @@
     "technician": "Technician",
     "storekeeper": "Storekeeper",
     "supervisor": "Supervisor",
-    "department": "Dept Supervisor"
+    "department": "Dept Supervisor",
+    "viewer": "Viewer"
   },
   "users": {
     "pageTitle": "User Management",

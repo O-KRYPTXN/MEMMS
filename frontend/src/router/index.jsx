@@ -8,6 +8,7 @@ import AdminLayout from '../layouts/AdminLayout'
 import SupervisorLayout from '../layouts/SupervisorLayout'
 import TechnicianLayout from '../layouts/TechnicianLayout'
 import DepartmentLayout from '../layouts/DepartmentLayout'
+import ViewerLayout from '../layouts/ViewerLayout'
 
 // Auth
 import Login from '../pages/auth/Login'
@@ -139,6 +140,22 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to={ROUTES.DEPT_DASHBOARD} replace /> },
       { path: 'dashboard', element: <DeptDashboard /> },
       { path: 'requests', element: <DeptRequests /> },
+      { path: 'profile', element: <Profile /> },
+    ],
+  },
+
+  // Viewer routes
+  {
+    path: '/viewer',
+    element: (
+      <ProtectedRoute allowedRoles={[ROLES.VIEWER]}>
+        <ViewerLayout />
+      </ProtectedRoute>
+    ),
+    errorElement: <ErrorBoundry />,
+    children: [
+      { index: true, element: <Navigate to={ROUTES.VIEWER_REPORTS} replace /> },
+      { path: 'reports', element: <AdminReports /> },
       { path: 'profile', element: <Profile /> },
     ],
   },

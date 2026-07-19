@@ -201,7 +201,8 @@
     "technician": "فني",
     "storekeeper": "أمين مستودع",
     "supervisor": "مشرف",
-    "department": "مشرف القسم"
+    "department": "مشرف القسم",
+    "viewer": "عارض"
   },
   "users": {
     "pageTitle": "إدارة المستخدمين",

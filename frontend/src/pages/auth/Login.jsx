@@ -186,7 +186,7 @@ export default function Login() {
             admin@memms.local / asdfasdf<br />
             supervisor@memms.local / asdfasdf<br />
             tech1@memms.local / asdfasdf<br />
-            doc.er@memms.local/ asdfasdf
+            viewer@memms.local / asdfasdf
           </div>
         </div>
       </div>

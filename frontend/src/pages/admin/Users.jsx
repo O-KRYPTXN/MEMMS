@@ -30,7 +30,8 @@ const ROLE_BADGES = {
   supervisor: 'bg-blue-100 dark:bg-[rgba(59,130,246,0.15)] text-blue-700 dark:text-[#60A5FA] border border-blue-200 dark:border-[rgba(59,130,246,0.3)]',
   technician: 'bg-green-100 dark:bg-[rgba(34,197,94,0.15)] text-green-700 dark:text-[#4ADE80] border border-green-200 dark:border-[rgba(34,197,94,0.3)]',
   store: 'bg-purple-100 dark:bg-[rgba(168,85,247,0.15)] text-purple-700 dark:text-[#D8B4FE] border border-purple-200 dark:border-[rgba(168,85,247,0.3)]',
-  department: 'bg-slate-100 dark:bg-[rgba(148,163,184,0.15)] text-slate-700 dark:text-[#94A3B8] border border-slate-200 dark:border-[rgba(148,163,184,0.3)]'
+  department: 'bg-slate-100 dark:bg-[rgba(148,163,184,0.15)] text-slate-700 dark:text-[#94A3B8] border border-slate-200 dark:border-[rgba(148,163,184,0.3)]',
+  viewer: 'bg-cyan-100 dark:bg-[rgba(6,182,212,0.15)] text-cyan-700 dark:text-[#22D3EE] border border-cyan-200 dark:border-[rgba(6,182,212,0.3)]'
 };
 
 const RoleBadge = ({ role }) => {

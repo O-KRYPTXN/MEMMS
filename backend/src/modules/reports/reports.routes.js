@@ -9,7 +9,7 @@ import * as reportsValidation from './reports.validation.js';
 const router = express.Router();
 
 router.use(protect);
-router.use(requireRoles('ADMIN'));
+router.use(requireRoles('ADMIN', 'VIEWER'));
 
 router.get(
   '/dashboard',

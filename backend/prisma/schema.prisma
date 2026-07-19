@@ -19,6 +19,7 @@ enum Role {
   SUPERVISOR
   TECHNICIAN
   DEPARTMENT  // department head / nurse who reports faulty devices
+  VIEWER      // role that only views reports and profile
 }
 
 enum Theme {

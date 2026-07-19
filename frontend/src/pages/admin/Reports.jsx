@@ -37,13 +37,12 @@ function FormatBadge({ format }) {
 
 function CategoryBadge({ category }) {
   const map = {
-    EQUIPMENT: 'bg-[rgba(59,130,246,0.15)] text-[#60A5FA]',
-    MAINTENANCE: 'bg-[rgba(168,85,247,0.15)] text-[#D8B4FE]',
-
-    FINANCIAL: 'bg-[rgba(34,197,94,0.15)] text-[#4ADE80]',
-    COMPLIANCE: 'bg-[rgba(248,113,113,0.15)] text-[#F87171]',
+    EQUIPMENT: 'bg-blue-100 text-blue-700 dark:bg-[rgba(59,130,246,0.15)] dark:text-[#60A5FA]',
+    MAINTENANCE: 'bg-purple-100 text-purple-700 dark:bg-[rgba(168,85,247,0.15)] dark:text-[#D8B4FE]',
+    FINANCIAL: 'bg-green-100 text-green-700 dark:bg-[rgba(34,197,94,0.15)] dark:text-[#4ADE80]',
+    COMPLIANCE: 'bg-red-100 text-red-700 dark:bg-[rgba(248,113,113,0.15)] dark:text-[#F87171]',
   }
-  const cls = map[category] || 'bg-[rgba(148,163,184,0.15)] text-[#94A3B8]'
+  const cls = map[category] || 'bg-slate-100 text-slate-700 dark:bg-[rgba(148,163,184,0.15)] dark:text-[#94A3B8]'
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${cls}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -54,11 +53,11 @@ function CategoryBadge({ category }) {
 
 function StatusBadge({ status }) {
   const map = {
-    PENDING: 'text-[#FCD34D]',
-    COMPLETED: 'text-[#4ADE80]',
-    FAILED: 'text-[#F87171]'
+    PENDING: 'text-yellow-600 dark:text-[#FCD34D]',
+    COMPLETED: 'text-green-600 dark:text-[#4ADE80]',
+    FAILED: 'text-red-600 dark:text-[#F87171]'
   }
-  return <span className={`font-bold text-[10px] uppercase ${map[status] || 'text-gray-400'}`}>{status}</span>
+  return <span className={`font-bold text-[10px] uppercase ${map[status] || 'text-gray-500 dark:text-gray-400'}`}>{status}</span>
 }
 
 const ROWS_PER_PAGE = 8
@@ -203,7 +202,6 @@ export default function Reports() {
   const complianceData = dashboard?.complianceData || [];
   const faultData = dashboard?.faultData || [];
   const categoryData = dashboard?.categoryData || [];
-  const sparePartsData = dashboard?.sparePartsData || [];
 
   return (
     <div className="flex flex-col gap-6 relative pb-10">
@@ -275,7 +273,7 @@ export default function Reports() {
             </div>
           </Panel>
 
-          <Panel padding="p-5" className="lg:col-span-2 flex flex-col">
+          <Panel padding="p-5" className="lg:col-span-3 flex flex-col">
             <div className="text-[0.875rem] font-bold text-[var(--text-primary)] mb-4">{t('reports.wosByCategory', 'Work Orders by Device Category')}</div>
             <div className="flex-1 min-h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -289,24 +287,6 @@ export default function Reports() {
                   <Bar dataKey="open" name="Open WOs" stackId="a" fill="#3B72F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-          </Panel>
-
-          <Panel padding="p-5" className="lg:col-span-1 flex flex-col">
-            <div className="text-[0.875rem] font-bold text-[var(--text-primary)] mb-5">{t('reports.sparePartsConsumption', 'Lowest Stock Parts')}</div>
-            <div className="flex flex-col gap-4 flex-1 justify-center">
-              {sparePartsData.length === 0 && <span className="text-sm text-[var(--text-muted)]">{t('admin.reports.noPartsData', 'No parts data')}</span>}
-              {sparePartsData.map((part) => (
-                <div key={part.name} className="w-full">
-                  <div className="flex justify-between items-end mb-1.5">
-                    <span className="text-[12px] font-medium text-[var(--text-primary)]">{part.name}</span>
-                    <span className="text-[11px] font-semibold text-[var(--text-muted)]">{part.count} <span className="text-[var(--text-muted)] font-normal">/ {part.max}</span></span>
-                  </div>
-                  <div className="w-full h-[6px] rounded-full bg-[var(--bg-input)] overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min((part.count / part.max) * 100, 100)}%`, backgroundColor: part.color }}></div>
-                  </div>
-                </div>
-              ))}
             </div>
           </Panel>
         </div>

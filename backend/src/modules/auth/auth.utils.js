@@ -32,8 +32,8 @@ export const mapFrontendRoleToEnum = (role) => {
   const roleMap = {
     'Supervisor': 'SUPERVISOR',
     'Technician': 'TECHNICIAN',
-
     'Department Supervisor': 'DEPARTMENT',
+    'Viewer': 'VIEWER',
     'Administrator': 'ADMIN'
   };
 

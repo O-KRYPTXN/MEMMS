@@ -10,7 +10,8 @@ const ROLES = [
   { id: 'Supervisor', label: 'Supervisor', icon: '🏥' },
   { id: 'Technician', label: 'Technician', icon: '🔧' },
 
-  { id: 'Department Supervisor', label: 'Department Supervisor', icon: '🩺' }
+  { id: 'Department Supervisor', label: 'Department Supervisor', icon: '🩺' },
+  { id: 'Viewer', label: 'Viewer', icon: '👁️' }
 ];
 
 const calculateStrength = (password) => {

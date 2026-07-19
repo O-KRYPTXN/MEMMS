@@ -36,6 +36,9 @@ export const ROUTES = {
 
 
 
+  // Viewer
+  VIEWER_REPORTS: '/viewer/reports',
+
   // Shared
   PROFILE: '/profile',
   UNAUTHORIZED: '/unauthorized',
