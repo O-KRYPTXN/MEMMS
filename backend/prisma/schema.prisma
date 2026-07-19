@@ -1,0 +1,451 @@
+// ═══════════════════════════════════════════════════════════
+//  MEMMS — Medical Equipment Maintenance Management System
+//  Prisma Schema  ·  PostgreSQL
+// ═══════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  TECHNICIAN
+  DEPARTMENT  // department head / nurse who reports faulty devices
+}
+
+enum Theme {
+  DARK
+  LIGHT
+}
+
+enum Language {
+  EN
+  AR
+}
+
+enum DeviceStatus {
+  OPERATIONAL
+  FAULTY
+  MAINTENANCE
+  DECOMMISSIONED
+}
+
+enum WoType {
+  REPAIR
+  PREVENTIVE_MAINTENANCE
+  DECOMMISSION
+}
+
+enum WoStatus {
+  OPEN             // created, not yet assigned
+  IN_PROGRESS
+  PENDING_APPROVAL // technician marked solved, awaiting supervisor sign-off
+  DONE             // supervisor approved / closed
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PMType {
+  ROUTINE
+  CALIBRATION
+  INSPECTION
+}
+
+enum PMStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum PMRecurrence {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+enum FaultUrgency {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReportStatus {
+  PENDING     // submitted by department, not yet reviewed
+  IN_PROGRESS // WO created and being worked on
+  SOLVED      // WO closed, device back in service
+  REJECTED    // report dismissed
+}
+
+enum EmailStatus {
+  SENT
+  PENDING
+  FAILED
+  REPLIED
+  ACTION_REQUIRED
+}
+
+enum AlertType {
+  CRITICAL
+  WARNING
+  INFO
+  SUCCESS
+}
+
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ReportCategory {
+  EQUIPMENT
+  MAINTENANCE
+  COMPLIANCE
+}
+
+enum ReportFormat {
+  PDF
+  EXCEL
+  CSV
+}
+
+enum ReportGenerationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// ─── DEPARTMENT ─────────────────────────────────────────────
+// Single source of truth for department names.
+// All models reference this table instead of storing raw strings.
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique // "ICU" | "ER" | "Surgery" | "Radiology" | …
+  code      String   @unique // short code e.g. "ICU", "ER", "RAD"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── Relations ──────────────────────────────────────────
+  users       User[]
+  devices     Device[]
+  registrationRequests RegistrationRequest[]
+}
+
+// ─── USER ───────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  phone             String?
+  passwordHash      String?
+  role              Role      @default(TECHNICIAN)
+  initials          String?
+  isActive          Boolean   @default(true)
+  isSuspended       Boolean   @default(false)
+
+  // Per-user UI preferences (persisted to DB so they survive re-login)
+  theme    Theme    @default(DARK)
+  language Language @default(EN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // ── FK: Department (optional — not needed for ADMIN) ───
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  // ── Relations ──────────────────────────────────────────
+  assignedWorkOrders   WorkOrder[] @relation("AssignedTech")
+  supervisedWorkOrders WorkOrder[] @relation("SupervisedBy")
+  approvedWorkOrders   WorkOrder[] @relation("ApprovedBy")
+
+  assignedPMTasks PMTask[] @relation("AssignedPMTech")
+  createdPMTasks  PMTask[] @relation("CreatedByUser")
+
+  submittedFaultReports FaultReport[]
+
+  userAlerts UserAlert[]
+
+  auditLogs AuditLog[]
+
+  registrationRequest RegistrationRequest?
+
+  requestedReports GeneratedReport[]
+
+  @@index([role])
+  @@index([departmentId])
+}
+
+// ─── DEVICE ─────────────────────────────────────────────────
+
+model Device {
+  id           String       @id @default(cuid())
+  assetCode    String       @unique  // human-readable e.g. "DEV-001" — admin-assigned
+  name         String
+  category     String                // Respiratory | Monitoring | Resuscitation | Pumps | Other
+  serialNumber String       @unique
+  status       DeviceStatus @default(OPERATIONAL)
+  purchaseDate DateTime?
+  lastPmDate   DateTime?
+  nextPmDate   DateTime?
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // ── FK: Department ─────────────────────────────────────
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  // ── Relations ──────────────────────────────────────────
+  workOrders   WorkOrder[]
+  pmTasks      PMTask[]
+  faultReports FaultReport[]
+
+  @@index([departmentId])
+  @@index([status])
+}
+
+// ─── WORK ORDER ─────────────────────────────────────────────
+
+model WorkOrder {
+  id              String   @id @default(cuid())
+  workOrderNumber String   @unique  // human-readable e.g. "WO-2024-0001"
+  type            WoType
+  priority        Priority @default(MEDIUM)
+  status          WoStatus @default(OPEN)
+  description     String?           // detailed issue description
+  notes           String?           // resolution / closure notes
+  dueDate         DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // ── FK: Device ─────────────────────────────────────────
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  // ── FK: Assigned technician ────────────────────────────
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedTech", fields: [assignedToId], references: [id])
+
+  // ── FK: Supervising supervisor ─────────────────────────
+  supervisedById String?
+  supervisedBy   User?  @relation("SupervisedBy", fields: [supervisedById], references: [id])
+
+  // ── FK: Approving supervisor ───────────────────────────
+  approvedById String?
+  approvedBy   User?  @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  // ── FK: Source fault report (nullable — WO may be manual) ──
+  faultReportId String?      @unique
+  faultReport   FaultReport? @relation(fields: [faultReportId], references: [id])
+
+  // ── FK: Source PM Task (nullable) ──
+  pmTaskId String? @unique
+  pmTask   PMTask? @relation(fields: [pmTaskId], references: [id])
+
+  // ── Relations ──────────────────────────────────────────
+  auditLogs    AuditLog[]
+
+  @@index([assignedToId])
+  @@index([deviceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── PREVENTIVE MAINTENANCE TASK ────────────────────────────
+
+model PMTask {
+  id             String        @id @default(cuid())
+  pmNumber       String        @unique  // human-readable e.g. "PM-2026-0051"
+  type           PMType        @default(ROUTINE)
+  status         PMStatus      @default(SCHEDULED)
+  recurrence     PMRecurrence?
+  scheduledAt    DateTime
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // ── FK: Device ─────────────────────────────────────────
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  // ── FK: Assigned technician ────────────────────────────
+  assignedToId String?
+  assignedTo   User?  @relation("AssignedPMTech", fields: [assignedToId], references: [id])
+
+  // ── FK: Creator (admin / supervisor who scheduled it) ──
+  createdById String?
+  createdBy   User?  @relation("CreatedByUser", fields: [createdById], references: [id])
+
+  // ── Reverse relation: WO generated from this PM Task ──
+  workOrder WorkOrder?
+
+  @@index([scheduledAt])
+  @@index([assignedToId])
+  @@index([status])
+}
+
+// ─── FAULT REPORT ───────────────────────────────────────────
+// Submitted by the DEPARTMENT role when a device is faulty.
+// Admin / supervisor can auto-generate a WO from it.
+
+model FaultReport {
+  id          String       @id @default(cuid())
+  description String
+  urgency     FaultUrgency @default(MEDIUM)
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // ── FK: Faulty device ──────────────────────────────────
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id])
+
+  // ── FK: Department user who submitted it ───────────────
+  submittedById String
+  submittedBy   User   @relation(fields: [submittedById], references: [id])
+
+  // ── Reverse relation: WO auto-generated from this report ──
+  workOrder WorkOrder?
+
+  @@index([status])
+  @@index([submittedById])
+  @@index([deviceId])
+}
+
+// ─── ALERT ──────────────────────────────────────────────────
+// System-generated notifications shown in admin / supervisor dashboards.
+// userId = null + targetRole = broadcast to all users of that role.
+
+model Alert {
+  id        String    @id @default(cuid())
+  type      AlertType
+  title     String
+  subtitle  String?
+  createdAt DateTime  @default(now())
+
+  // Optional contextual links
+  workOrderId   String?
+  deviceId      String?
+  pmTaskId      String?
+  faultReportId String?
+
+  userAlerts  UserAlert[]
+
+  @@index([createdAt])
+}
+
+// ─── USER ALERT (Pivot) ─────────────────────────────────────
+// Represents the delivery of an alert to a specific user.
+
+model UserAlert {
+  id        String   @id @default(cuid())
+  userId    String
+  alertId   String
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, alertId])
+  @@index([userId, isRead])
+  @@index([alertId])
+}
+
+// ─── AUDIT LOG ──────────────────────────────────────────────
+// Immutable record of all significant state changes.
+// Used by the admin Reports page for compliance tracking.
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g. "WO_STATUS_CHANGED" | "USER_CREATED"
+  entity    String   // model name: "WorkOrder" | "Device" | "User" …
+  entityId  String   // PK of the changed record
+  oldValue  String?  // JSON string of previous state
+  newValue  String?  // JSON string of new state
+  createdAt DateTime @default(now())
+
+  // ── FK: Who triggered the change ───────────────────────
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // ── FK: Optional WO context ────────────────────────────
+  workOrderId String?
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ─── REGISTRATION REQUEST ───────────────────────────────────
+// Self-registration / access requests shown in admin Users page
+// under the "Pending Requests" tab.
+
+model RegistrationRequest {
+  id          String                    @id @default(cuid())
+  name        String
+  email       String                    @unique
+  phone       String?
+  passwordHash String                   @default("")
+  role        Role
+  status      RegistrationRequestStatus @default(PENDING)
+  submittedAt DateTime                  @default(now())
+  reviewedAt  DateTime?
+
+  // ── FK: Department requested (optional) ────────────────
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  // ── FK: User created on approval ───────────────────────
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@index([status])
+}
+
+// ─── GENERATED REPORT ───────────────────────────────────────
+// Saved / scheduled report exports shown in the admin Reports page.
+
+model GeneratedReport {
+  id          String         @id @default(cuid())
+  title       String
+  category    ReportCategory
+  format      ReportFormat
+  status      ReportGenerationStatus @default(PENDING)
+  filePath    String?                       // absolute or relative path to the generated file on disk
+  sizeBytes   Int?                          // actual byte size — format for display in the API
+  period      String?                       // e.g. "Q2 2026", "June 2026"
+  generatedAt DateTime       @default(now())
+
+  // ── FK: Who requested the export ───────────────────────
+  requestedById String?
+  requestedBy   User?   @relation(fields: [requestedById], references: [id])
+
+  @@index([category])
+  @@index([requestedById])
+}

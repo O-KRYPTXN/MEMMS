@@ -1,0 +1,17 @@
+export const inventory = [
+  { code: 'INV-0001', name: 'O2 Sensor – Nellcor Compatible', category: 'Cables & Sensors', unit: 'pcs', qty: 0, min: 10, location: 'ICU Pharmacy', price: 48.00, recent: false },
+  { code: 'INV-0002', name: 'ECG Patient Cable – 5-Lead AHA', category: 'Cables & Sensors', unit: 'pcs', qty: 3, min: 15, location: 'Storeroom', price: 85.00, recent: false },
+  { code: 'INV-0003', name: 'IV Pump Inline Filter 0.2μm', category: 'Filters & Consumables', unit: 'box', qty: 22, min: 20, location: 'Storeroom', price: 32.50, recent: true },
+  { code: 'INV-0004', name: 'Defibrillator Pads – Adult Multifunction', category: 'Spare Parts', unit: 'pair', qty: 1, min: 12, location: 'ER Supplies', price: 120.00, recent: false },
+  { code: 'INV-0005', name: 'Ventilator Breathing Circuit', category: 'Filters & Consumables', unit: 'set', qty: 0, min: 8, location: 'ICU Pharmacy', price: 210.00, recent: false },
+  { code: 'INV-0006', name: 'HEPA Filter – Ventilator Grade', category: 'Filters & Consumables', unit: 'pcs', qty: 5, min: 10, location: 'Storeroom', price: 75.00, recent: true },
+  { code: 'INV-0007', name: 'Battery Pack 12V – Infusion Pump', category: 'Batteries & Power', unit: 'pcs', qty: 18, min: 10, location: 'Storeroom', price: 95.00, recent: true },
+  { code: 'INV-0008', name: 'Syringe Pump Drive Mechanism', category: 'Spare Parts', unit: 'pcs', qty: 4, min: 6, location: 'Storeroom', price: 340.00, recent: false },
+  { code: 'INV-0009', name: 'BP Cuff – Adult Large (Reusable)', category: 'Cables & Sensors', unit: 'pcs', qty: 30, min: 12, location: 'ER Supplies', price: 28.00, recent: true },
+  { code: 'INV-0010', name: 'SpO2 Probe – Neonatal Wrap', category: 'Cables & Sensors', unit: 'pcs', qty: 2, min: 10, location: 'ICU Pharmacy', price: 55.00, recent: false },
+  { code: 'INV-0011', name: 'Suction Catheter Fr14 Sterile', category: 'PPE & Supplies', unit: 'box', qty: 40, min: 20, location: 'ER Supplies', price: 18.50, recent: true },
+  { code: 'INV-0012', name: 'Laryngoscope Blade Mac 3', category: 'Spare Parts', unit: 'pcs', qty: 6, min: 8, location: 'Storeroom', price: 62.00, recent: true },
+  { code: 'INV-0013', name: 'Infusion Set Micro-Drip 60 drops/mL', category: 'PPE & Supplies', unit: 'box', qty: 55, min: 30, location: 'Storeroom', price: 14.00, recent: true },
+  { code: 'INV-0014', name: 'Pressure Transducer – Invasive BP', category: 'Spare Parts', unit: 'pcs', qty: 0, min: 5, location: 'ICU Pharmacy', price: 185.00, recent: false },
+  { code: 'INV-0015', name: 'CO2 Absorbent Granules – 1kg', category: 'Filters & Consumables', unit: 'kg', qty: 8, min: 6, location: 'Storeroom', price: 42.00, recent: true },
+]

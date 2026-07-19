@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── LIGHT MODE (default) ── */
+:root,
+.light {
+  --bg-body:        #CBD5E1;
+  --bg-sidebar:     #E2E8F0;
+  --bg-panel:       #E2E8F0;
+  --bg-card:        #E2E8F0;
+  --bg-input:       #CBD5E1;
+  --bg-hover:       #94A3B8;
+  --bg-table-header:#CBD5E1;
+  --border:         #94A3B8;
+  --text-primary:   #000000;
+  --text-secondary: #000000;
+  --text-muted:     #000000;
+  --text-table-header: #000000;
+}
+
+
+/* ── DARK MODE ── */
+.dark {
+  --bg-body: #0F1117;
+  --bg-sidebar: #131720;
+  --bg-panel: #181D2A;
+  --bg-card: #181D2A;
+  --bg-input: #0d1117;
+  --bg-hover: #1A2235;
+  --bg-table-header: #131720;
+  --border: #1F2A40;
+  --text-primary: #E2E8F0;
+  --text-secondary: #94A3B8;
+  --text-muted: #5A6A85;
+  --text-table-header: #5A6A85;
+}
+
+/* Apply CSS variables to base elements */
+body {
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-modal-in {
+  animation: modalIn 0.2s ease forwards;
+}
+
+.toast-enter {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast-exit {
+  transform: translateY(80px);
+  opacity: 0;
+}
