@@ -104,6 +104,11 @@ export const getDeviceById = async (id) => {
     include: {
       department: {
         select: { id: true, name: true, code: true }
+      },
+      workOrders: {
+        where: { status: 'DONE' },
+        orderBy: { resolvedAt: 'desc' },
+        include: { assignedTo: { select: { name: true } } }
       }
     }
   });

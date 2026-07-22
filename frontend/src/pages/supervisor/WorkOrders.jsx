@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import InputField from '../../components/forms/InputField'
 import SelectField from '../../components/forms/SelectField'
@@ -31,10 +32,12 @@ const TypeBadge = ({ type }) => {
   return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.7rem] font-semibold ${map[type] ?? ''}`}><span className="w-1.5 h-1.5 rounded-full bg-current" />{labelMap[type] || type}</span>
 }
 
-const WOStatusBadge = ({ status }) => {
+const WOStatusBadge = ({ status, isAssigned }) => {
   const { t } = useTranslation()
   const map = {
-    'OPEN': 'bg-red-700/10 text-red-800 dark:bg-[rgba(239,68,68,0.12)] dark:text-[#F87171]',
+    'OPEN': isAssigned 
+      ? 'bg-blue-700/10 text-blue-800 dark:bg-[rgba(59,130,246,0.12)] dark:text-[#60A5FA]' 
+      : 'bg-red-700/10 text-red-800 dark:bg-[rgba(239,68,68,0.12)] dark:text-[#F87171]',
     'IN_PROGRESS': 'bg-yellow-700/10 text-yellow-800 dark:bg-[rgba(245,158,11,0.12)] dark:text-[#FCD34D]',
     'PENDING_APPROVAL': 'bg-teal-700/10 text-teal-800 dark:bg-[rgba(20,184,166,0.12)] dark:text-[#14B8A6]',
     'WAITING_PARTS': 'bg-purple-700/10 text-purple-800 dark:bg-[rgba(168,85,247,0.12)] dark:text-[#C084FC]',
@@ -42,7 +45,7 @@ const WOStatusBadge = ({ status }) => {
     'CANCELLED': 'bg-gray-700/10 text-gray-800 dark:bg-[rgba(156,163,175,0.12)] dark:text-[#9CA3AF]'
   }
   const labelMap = {
-    'OPEN': t('supWorkOrders.unassigned', 'Open'),
+    'OPEN': isAssigned ? t('supWorkOrders.assigned', 'Assigned') : t('supWorkOrders.unassigned', 'Unassigned'),
     'IN_PROGRESS': t('supWorkOrders.inProgress', 'In Progress'),
     'WAITING_PARTS': t('common.waitingParts', 'Waiting Parts'),
     'PENDING_APPROVAL': t('supWorkOrders.pendingApproval', 'Pending Approval'),
@@ -63,6 +66,7 @@ const inputCls = "bg-[#1A2235] border border-[#1F2A40] text-[#E2E8F0] px-3 py-2.
 
 export default function WorkOrders() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [wos, setWos] = useState([])
   const [technicians, setTechnicians] = useState([])
   const [activeTab, setActiveTab] = useState('all')
@@ -143,6 +147,8 @@ export default function WorkOrders() {
       showToast(t('supWorkOrders.toastAssignedSuccess'), TOAST_COLORS.supervisor)
       setShowAssignModal(false)
       loadData()
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] })
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to assign', TOAST_COLORS.error)
     } finally {
@@ -161,6 +167,8 @@ export default function WorkOrders() {
       setShowApproveModal(false)
       setApproveNotes('')
       loadData()
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] })
     } catch (err) {
       showToast('Failed to approve', TOAST_COLORS.error)
     } finally {
@@ -200,7 +208,7 @@ export default function WorkOrders() {
       </div>
 
       <div className="flex gap-[2px] bg-[var(--bg-sidebar)] border border-[var(--border)] rounded-[10px] p-1 w-fit overflow-x-auto max-w-full">
-        {[{id:'all', label:t('common.all')}, {id:'OPEN', label:t('supWorkOrders.unassigned', 'Open')}, {id:'IN_PROGRESS', label:t('supWorkOrders.inProgress', 'In Progress')}, {id:'PENDING_APPROVAL', label:t('supWorkOrders.pendingApproval', 'Pending')}, {id:'DONE', label:t('supWorkOrders.closed', 'Done')}].map(tab => (
+        {[{id:'all', label:t('common.all')}, {id:'OPEN', label:t('common.open', 'Open')}, {id:'IN_PROGRESS', label:t('supWorkOrders.inProgress', 'In Progress')}, {id:'PENDING_APPROVAL', label:t('supWorkOrders.pendingApproval', 'Pending')}, {id:'DONE', label:t('supWorkOrders.closed', 'Done')}].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={clsx("whitespace-nowrap px-[18px] py-[7px] rounded-[7px] text-[0.8125rem] font-semibold transition-colors flex items-center", activeTab === tab.id ? "bg-[var(--bg-panel)] text-[#14B8A6]" : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]")}>
             {tab.label}
             <span className={clsx("ms-[5px] px-[6px] py-[1px] rounded-full text-[0.65rem] font-bold", activeTab === tab.id ? "bg-[rgba(20,184,166,0.15)] text-[#14B8A6]" : "bg-[rgba(239,68,68,0.15)] text-[var(--text-secondary)]")}>
@@ -248,11 +256,11 @@ export default function WorkOrders() {
                   <td className="p-4 text-[13px] text-[var(--text-secondary)]">{w.device?.department?.name}</td>
                   <td className="p-4"><PriorityBadge priority={w.priority} /></td>
                   <td className={clsx("p-4 text-[13px]", !w.assignedToId ? 'text-[#F87171]' : 'text-[var(--text-secondary)]')}>{w.assignedTo?.name || 'Unassigned'}</td>
-                  <td className="p-4"><WOStatusBadge status={w.status} /></td>
+                  <td className="p-4"><WOStatusBadge status={w.status} isAssigned={!!w.assignedToId} /></td>
                   <td className="p-4 flex gap-1.5">
-                    {w.status === 'OPEN' && <button onClick={() => { setAssignTargetId(w.id); setShowAssignModal(true) }} className="bg-blue-700/10 border border-blue-700/30 dark:border-[rgba(59,114,246,0.25)] text-blue-800 dark:bg-[rgba(59,114,246,0.12)] dark:text-[#5E8FFF] rounded-md px-[10px] py-[4px] text-[0.72rem] font-bold hover:bg-[rgba(59,114,246,0.2)]">{t('common.assign')}</button>}
+                    {!w.assignedToId && w.status === 'OPEN' && <button onClick={() => { setAssignTargetId(w.id); setShowAssignModal(true) }} className="bg-blue-700/10 border border-blue-700/30 dark:border-[rgba(59,114,246,0.25)] text-blue-800 dark:bg-[rgba(59,114,246,0.12)] dark:text-[#5E8FFF] rounded-md px-[10px] py-[4px] text-[0.72rem] font-bold hover:bg-[rgba(59,114,246,0.2)]">{t('common.assign')}</button>}
                     {w.status === 'PENDING_APPROVAL' && <button onClick={() => { setActiveApproval(w); setShowApproveModal(true) }} className="bg-teal-700/10 border border-teal-700/30 dark:border-[rgba(20,184,166,0.25)] text-teal-800 dark:bg-[rgba(20,184,166,0.12)] dark:text-[#14B8A6] rounded-md px-[10px] py-[4px] text-[0.72rem] font-bold hover:bg-[rgba(20,184,166,0.2)]">{t('common.approve')}</button>}
-                    {(w.status !== 'OPEN') && <button onClick={() => { setViewWO(w); setShowViewModal(true) }} className="w-[30px] h-[30px] rounded flex items-center justify-center border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-[14px] h-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>}
+                    {(w.status !== 'OPEN' || w.assignedToId) && <button onClick={() => { setViewWO(w); setShowViewModal(true) }} className="w-[30px] h-[30px] rounded flex items-center justify-center border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-[14px] h-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>}
                   </td>
                 </tr>
               ))}

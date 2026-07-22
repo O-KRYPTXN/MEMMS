@@ -759,7 +759,7 @@
   },
   "techNotifications": {
     "pageTitle": "Arrivals & Updates",
-    "pageSubtitle": "Important messages about your requested devices and spare parts.",
+    "pageSubtitle": "Important messages about your requested devices.",
     "noNotifications": "You have no new arrivals or notifications.",
     "itemArrived": "Item Arrived: {{name}}",
     "requestFulfilled": "Your request ({{id}}) for",

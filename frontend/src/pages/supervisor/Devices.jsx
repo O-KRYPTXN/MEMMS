@@ -87,6 +87,14 @@ export default function SupervisorDevices() {
   const devices = data?.items || []
   const meta = data?.meta || { totalItems: 0, totalPages: 1 }
 
+  // Fetch Device Details (History)
+  const { data: deviceDetailsData, isLoading: isLoadingHistory } = useQuery({
+    queryKey: ['deviceDetails', selectedDevice?.id],
+    queryFn: () => deviceService.getDeviceById(selectedDevice.id),
+    enabled: !!selectedDevice?.id && showHistoryModal
+  })
+  const historyList = deviceDetailsData?.data?.workOrders || []
+
   useEffect(() => {
     if (showFaultModal) setFaultDeviceId(selectedDevice?.id || '')
   }, [showFaultModal, selectedDevice])
@@ -247,16 +255,44 @@ export default function SupervisorDevices() {
         isOpen={showHistoryModal && !!selectedDevice}
         onClose={() => setShowHistoryModal(false)}
         title={t('supDevices.maintenanceHistory')}
-        maxWidth="420px"
+        maxWidth="500px"
         footer={
           <ModalCancelBtn onClick={() => setShowHistoryModal(false)}>{t('common.close')}</ModalCancelBtn>
         }
       >
         <div className="flex flex-col gap-4 mt-2">
-          <div className="text-[var(--text-secondary)] text-[0.85rem] font-semibold">{selectedDevice?.name}</div>
-          <div className="text-center py-6 text-[var(--text-muted)] text-sm">{t('supDevices.noHistoryFound')}</div>
+          <div className="text-[var(--text-secondary)] text-[0.85rem] font-semibold">{selectedDevice?.name} ({selectedDevice?.assetCode})</div>
+          
+          {isLoadingHistory ? (
+            <div className="text-center py-6 text-[var(--text-muted)] text-sm">{t('common.loading')}</div>
+          ) : historyList.length === 0 ? (
+            <div className="text-center py-6 text-[var(--text-muted)] text-sm">{t('supDevices.noHistoryFound')}</div>
+          ) : (
+            <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-2">
+              {historyList.map(wo => (
+                <div key={wo.id} className="bg-[var(--bg-input)] border border-[var(--border)] rounded-lg p-3 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[13px] font-bold text-[var(--text-primary)]">{wo.workOrderNumber}</span>
+                    <span className="text-[11px] text-[var(--text-muted)] font-semibold">{formatDate(wo.resolvedAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-500/10 text-[var(--text-secondary)] text-[10px] font-bold rounded">{wo.type}</span>
+                    <span className="text-[12px] text-[var(--text-secondary)]">
+                      {wo.assignedTo?.name ? `Resolved by ${wo.assignedTo.name}` : 'Resolved'}
+                    </span>
+                  </div>
+                  {wo.notes && (
+                    <div className="text-[12px] text-[var(--text-muted)] mt-1 italic border-l-2 border-[var(--border)] pl-2">
+                      "{wo.notes}"
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Modal>
     </div>
   )
 }
+

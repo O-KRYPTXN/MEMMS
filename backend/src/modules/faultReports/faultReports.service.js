@@ -6,45 +6,91 @@ import { createAlert } from '../alerts/alerts.service.js';
 export const createFaultReport = async (data, userId) => {
   const { deviceId, description, urgency } = data;
 
-  // Verify device exists and get its department
-  const device = await prisma.device.findUnique({
-    where: { id: deviceId }
-  });
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Verify device exists
+    const device = await tx.device.findUnique({
+      where: { id: deviceId }
+    });
 
-  if (!device) {
-    throw new AppError('Device not found', 404);
-  }
-
-  // Optional: check if user's department matches device's department
-  // For safety, we will let controller verify this if needed, or do it here:
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (user.role === 'DEPARTMENT' && user.departmentId !== device.departmentId) {
-    throw new AppError('You can only report faults for devices in your department', 403);
-  }
-
-  // Create the fault report
-  const report = await prisma.faultReport.create({
-    data: {
-      deviceId,
-      description,
-      urgency: urgency || 'MEDIUM',
-      submittedById: userId,
-      status: 'PENDING'
-    },
-    include: {
-      device: true
+    if (!device) {
+      throw new AppError('Device not found', 404);
     }
+
+    // 2. Check if user's department matches device's department (bypass for technicians/admins)
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (user.role === 'DEPARTMENT' && user.departmentId !== device.departmentId) {
+      throw new AppError('You can only report faults for devices in your department', 403);
+    }
+
+    // 3. Prevent duplicate active fault reports
+    const activeFaults = await tx.faultReport.findFirst({
+      where: {
+        deviceId,
+        status: { in: ['PENDING', 'IN_PROGRESS'] }
+      }
+    });
+
+    if (activeFaults) {
+      throw new AppError('This device already has an active fault report', 400);
+    }
+
+    // 4. Create the fault report
+    const report = await tx.faultReport.create({
+      data: {
+        deviceId,
+        description,
+        urgency: urgency || 'MEDIUM',
+        submittedById: userId,
+        status: 'PENDING'
+      },
+      include: {
+        device: true,
+        submittedBy: { select: { name: true } }
+      }
+    });
+
+    // 5. Update device status to FAULTY
+    await tx.device.update({
+      where: { id: deviceId },
+      data: { status: 'FAULTY' }
+    });
+
+    // 6. Create Audit Log for Device Status Change
+    await tx.auditLog.create({
+      data: {
+        action: 'STATUS_CHANGED',
+        entity: 'Device',
+        entityId: device.assetCode,
+        oldValue: JSON.stringify({ status: device.status }),
+        newValue: JSON.stringify({ status: 'FAULTY' }),
+        userId
+      }
+    });
+
+    // 7. Create Audit Log for Fault Report Created
+    await tx.auditLog.create({
+      data: {
+        action: 'FAULT_REPORT_CREATED',
+        entity: 'FaultReport',
+        entityId: report.id,
+        newValue: JSON.stringify({ deviceId, description, urgency }),
+        userId
+      }
+    });
+
+    // 8. Create Supervisor Alert
+    await createAlert({
+      type: 'WARNING',
+      title: 'New Fault Reported',
+      subtitle: `New fault reported by ${report.submittedBy?.name || 'User'} for Device ${report.device.assetCode}`,
+      targetRoles: ['SUPERVISOR'],
+      faultReportId: report.id
+    }, tx);
+
+    return report;
   });
 
-  await createAlert({
-    type: 'WARNING',
-    title: 'New Fault Report',
-    subtitle: `${report.device.name} requires attention`,
-    targetRoles: ['SUPERVISOR'],
-    faultReportId: report.id
-  });
-
-  return report;
+  return result;
 };
 
 export const getFaultReports = async (page, limit, filters, user) => {

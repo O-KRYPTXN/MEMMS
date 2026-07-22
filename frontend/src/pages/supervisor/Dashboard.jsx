@@ -43,9 +43,7 @@ export default function SupervisorDashboard() {
   const [approveNotes, setApproveNotes] = useState('')
 
   const { register: regAssign, handleSubmit: submitAssign, reset: resetAssign } = useForm()
-
-  const queryParams = user?.departmentId ? { departmentId: user.departmentId } : {}
-
+  const queryParams = {}
   // 1. Fetch Work Orders
   const { data: woData } = useQuery({
     queryKey: ['workOrders', queryParams],
@@ -80,10 +78,10 @@ export default function SupervisorDashboard() {
     return workOrders.filter(wo => wo.status === 'PENDING_APPROVAL')
   }, [workOrders])
 
-  const openWorkOrdersCount = workOrders.filter(wo => ['OPEN', 'IN_PROGRESS', 'WAITING_PARTS'].includes(wo.status)).length
+  const openWorkOrdersCount = workOrders.filter(wo => ['OPEN', 'IN_PROGRESS'].includes(wo.status)).length
 
   const donutData = useMemo(() => {
-    const counts = { DONE: 0, IN_PROGRESS: 0, PENDING_APPROVAL: 0, OPEN: 0, WAITING_PARTS: 0, CANCELLED: 0 }
+    const counts = { DONE: 0, IN_PROGRESS: 0, PENDING_APPROVAL: 0, OPEN: 0, CANCELLED: 0 }
     workOrders.forEach(wo => {
       if (counts[wo.status] !== undefined) counts[wo.status]++
     })
@@ -91,7 +89,7 @@ export default function SupervisorDashboard() {
     return [
       { name: t('status.done', 'Done'), value: counts.DONE, color: '#4ADE80' },
       { name: t('status.inProgress', 'In Progress'), value: counts.IN_PROGRESS, color: '#FCD34D' },
-      { name: t('status.waitingParts', 'Waiting Parts'), value: counts.WAITING_PARTS, color: '#F59E0B' },
+
       { name: t('status.open', 'Open'), value: counts.OPEN, color: '#3B82F6' },
       { name: t('supervisor.pendingYourApproval', 'Pending Approval'), value: counts.PENDING_APPROVAL, color: '#14B8A6' },
       { name: t('status.cancelled', 'Cancelled'), value: counts.CANCELLED, color: '#9CA3AF' },
@@ -276,15 +274,19 @@ export default function SupervisorDashboard() {
             <KPICard title={t('supervisor.openWorkOrders')} value={openWorkOrdersCount} trend="warn" trendLabel="Active tasks" iconPath="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375" iconVariant="orange" />
           </div>
           <div onClick={() => navigate(ROUTES.SUPERVISOR_WORK_ORDERS)} className="cursor-pointer">
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-5 flex flex-col relative overflow-hidden transition-all duration-300 hover:border-[#14B8A6] hover:shadow-lg hover:shadow-teal-500/10">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[rgba(20,184,166,0.15)] text-[#14B8A6]">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div className="flex flex-col gap-3 p-5 rounded-xl border bg-[var(--bg-card)] border-[var(--border)] transition-all duration-300 hover:border-[#14B8A6] hover:shadow-lg hover:shadow-teal-500/10">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center justify-center w-[38px] h-[38px] rounded-lg bg-[rgba(20,184,166,0.15)] text-[#14B8A6] shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-[18px] h-[18px]"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
-                <div className="flex items-center gap-1 text-[#4ADE80] font-semibold text-[0.75rem] bg-[rgba(74,222,128,0.1)] px-2 py-0.5 rounded-full"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5v-15m0 0l-6.75 6.75M12 4.5l6.75 6.75" /></svg>Requires review</div>
+                <span className="flex items-center gap-[3px] py-0.5 px-[7px] rounded-full text-[0.7rem] font-semibold bg-green-700/10 text-green-800 dark:bg-[rgba(34,197,94,0.12)] dark:text-[#4ADE80]">
+                  Requires review
+                </span>
               </div>
-              <div className="text-[1.75rem] font-bold text-[var(--text-primary)] leading-tight">{pendingApprovals.length}</div>
-              <div className="text-[0.8125rem] text-[var(--text-muted)] font-semibold mt-1">{t('supervisor.pendingYourApproval')}</div>
+              <div>
+                <div className="text-[1.75rem] font-extrabold text-[var(--text-primary)] leading-none">{pendingApprovals.length}</div>
+                <div className="mt-0.5 text-[0.8rem] font-medium text-[var(--text-muted)]">{t('supervisor.pendingYourApproval')}</div>
+              </div>
             </div>
           </div>
           <div onClick={() => navigate(ROUTES.SUPERVISOR_FAULT_REPORTS)} className="cursor-pointer">

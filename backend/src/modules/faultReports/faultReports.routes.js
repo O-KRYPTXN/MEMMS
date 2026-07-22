@@ -9,7 +9,7 @@ router.use(protect);
 
 router.get('/stats', requireRoles('DEPARTMENT', 'ADMIN', 'SUPERVISOR'), faultReportController.getFaultReportStats);
 router.get('/', requireRoles('DEPARTMENT', 'ADMIN', 'SUPERVISOR', 'TECHNICIAN'), faultReportController.getFaultReports);
-router.post('/', requireRoles('DEPARTMENT'), faultReportController.createFaultReport);
+router.post('/', requireRoles('DEPARTMENT', 'TECHNICIAN'), faultReportController.createFaultReport);
 router.patch('/:id', requireRoles('ADMIN', 'SUPERVISOR'), faultReportController.updateFaultReport);
 
 export default router;

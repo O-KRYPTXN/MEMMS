@@ -7,8 +7,9 @@ const FALLBACK = {
   dot: 'bg-slate-500 dark:bg-[#94A3B8]',
 }
 
-const StatusBadge = ({ variant, label }) => {
+const StatusBadge = ({ variant, status, label }) => {
   const { t } = useTranslation()
+  const actualVariant = (variant || status || '').toLowerCase()
   const variantMap = {
     high: { bg: 'bg-red-100 dark:bg-[rgba(239,68,68,0.12)]', text: 'text-red-700 dark:text-[#F87171]', dot: 'bg-red-500 dark:bg-[#F87171]' },
     medium: { bg: 'bg-orange-100 dark:bg-[rgba(245,158,11,0.12)]', text: 'text-orange-700 dark:text-[#FCD34D]', dot: 'bg-orange-500 dark:bg-[#FCD34D]' },
@@ -37,12 +38,12 @@ const StatusBadge = ({ variant, label }) => {
     decommissioned: 'Decommissioned',
   }
 
-  const styles = variantMap[variant] ?? FALLBACK
+  const styles = variantMap[actualVariant] ?? FALLBACK
   
   // If a label is explicitly passed and it isn't a raw translation key, use it.
   // Otherwise, attempt to translate the variant, then fallback to defaultLabels.
   const isRawKey = typeof label === 'string' && label.startsWith('status.');
-  const displayLabel = (label && !isRawKey) ? label : (t(`status.${variant}`, defaultLabels[variant] ?? variant))
+  const displayLabel = (label && !isRawKey) ? label : (t(`status.${actualVariant}`, defaultLabels[actualVariant] ?? actualVariant))
 
   return (
     <span

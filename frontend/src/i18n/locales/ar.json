@@ -759,7 +759,7 @@
   },
   "techNotifications": {
     "pageTitle": "الوصول والتحديثات",
-    "pageSubtitle": "رسائل مهمة حول أجهزتك وقطع الغيار المطلوبة.",
+    "pageSubtitle": "رسائل مهمة حول أجهزتك المطلوبة.",
     "noNotifications": "ليس لديك أي إشعارات جديدة.",
     "itemArrived": "وصول عنصر: {{name}}",
     "requestFulfilled": "تم تلبية طلبك ({{id}}) لـ",

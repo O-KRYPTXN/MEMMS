@@ -34,7 +34,7 @@ const generateWorkOrderNumber = async () => {
 };
 
 export const createWorkOrder = async (data, user) => {
-  const { deviceId, faultReportId, pmTaskId, ...rest } = data;
+  const { deviceId, faultReportId, pmTaskId, assignedToId, ...rest } = data;
 
   // Validate device
   const device = await prisma.device.findUnique({ where: { id: deviceId } });
@@ -73,6 +73,7 @@ export const createWorkOrder = async (data, user) => {
         deviceId,
         faultReportId,
         pmTaskId,
+        assignedToId,
         workOrderNumber,
         status: 'OPEN'
       },
@@ -189,7 +190,6 @@ export const getWorkOrderById = async (id, user) => {
       device: true,
       assignedTo: { select: { id: true, name: true, email: true } },
       faultReport: true,
-      partRequests: true,
       auditLogs: true
     }
   });
@@ -226,6 +226,7 @@ export const updateWorkOrder = async (id, data, user) => {
           data: { status, notes, resolvedAt: new Date() }
         });
 
+        let nextPmDate = undefined;
         if (wo.pmTaskId) {
           const pmTask = await tx.pMTask.findUnique({ where: { id: wo.pmTaskId } });
           await tx.pMTask.update({
@@ -234,7 +235,6 @@ export const updateWorkOrder = async (id, data, user) => {
           });
 
           // Calculate next PM Date
-          let nextPmDate = null;
           if (pmTask.recurrence) {
             const date = new Date();
             if (pmTask.recurrence === 'MONTHLY') date.setMonth(date.getMonth() + 1);
@@ -243,12 +243,16 @@ export const updateWorkOrder = async (id, data, user) => {
             else if (pmTask.recurrence === 'ANNUAL') date.setFullYear(date.getFullYear() + 1);
             nextPmDate = date;
           }
-
-          await tx.device.update({
-            where: { id: wo.deviceId },
-            data: { lastPmDate: new Date(), nextPmDate }
-          });
         }
+
+        await tx.device.update({
+          where: { id: wo.deviceId },
+          data: { 
+            status: 'OPERATIONAL',
+            lastPmDate: new Date(), 
+            ...(nextPmDate !== undefined && { nextPmDate }) 
+          }
+        });
         
         await logAction({
           userId: user.id,
@@ -281,37 +285,60 @@ export const updateWorkOrder = async (id, data, user) => {
       throw new AppError('Corrective work orders require supervisor approval (use PENDING_APPROVAL)', 400);
     }
 
-    const updateData = { status, notes };
-    if (status === 'PENDING_APPROVAL' && wo.status !== 'PENDING_APPROVAL') {
-      updateData.resolvedAt = new Date();
-    }
+    return prisma.$transaction(async (tx) => {
+      const updateData = { status, notes };
+      if (status === 'PENDING_APPROVAL' && wo.status !== 'PENDING_APPROVAL') {
+        updateData.resolvedAt = new Date();
+      }
 
-    const updated = await prisma.workOrder.update({
-      where: { id },
-      data: updateData
-    });
-
-    await logAction({
-      userId: user.id,
-      action: 'STATUS_CHANGED',
-      entity: 'WorkOrder',
-      entityId: wo.workOrderNumber,
-      oldValue: wo,
-      newValue: updated,
-      workOrderId: id
-    });
-
-    if (status === 'PENDING_APPROVAL' && wo.status !== 'PENDING_APPROVAL') {
-      await createAlert({
-        type: 'INFO',
-        title: 'Work Order Pending Approval',
-        subtitle: `${wo.workOrderNumber} is pending your review`,
-        targetRoles: ['SUPERVISOR'],
-        workOrderId: wo.id
+      const updated = await tx.workOrder.update({
+        where: { id },
+        data: updateData
       });
-    }
 
-    return updated;
+      // Work Order transitions to IN_PROGRESS
+      if (status === 'IN_PROGRESS' && wo.status !== 'IN_PROGRESS') {
+        const device = await tx.device.findUnique({ where: { id: wo.deviceId } });
+        if (device.status !== 'MAINTENANCE') {
+          await tx.device.update({
+            where: { id: wo.deviceId },
+            data: { status: 'MAINTENANCE' }
+          });
+          await logAction({
+            userId: user.id,
+            action: 'STATUS_CHANGED',
+            entity: 'Device',
+            entityId: device.assetCode,
+            oldValue: device,
+            newValue: { ...device, status: 'MAINTENANCE' },
+            tx
+          });
+        }
+      }
+
+      await logAction({
+        userId: user.id,
+        action: 'STATUS_CHANGED',
+        entity: 'WorkOrder',
+        entityId: wo.workOrderNumber,
+        oldValue: wo,
+        newValue: updated,
+        workOrderId: id,
+        tx
+      });
+
+      if (status === 'PENDING_APPROVAL' && wo.status !== 'PENDING_APPROVAL') {
+        await createAlert({
+          type: 'INFO',
+          title: 'Work Order Pending Approval',
+          subtitle: `${wo.workOrderNumber} is pending your review`,
+          targetRoles: ['SUPERVISOR'],
+          workOrderId: wo.id
+        }, tx);
+      }
+
+      return updated;
+    });
   }
 
   return prisma.$transaction(async (tx) => {
@@ -340,9 +367,48 @@ export const updateWorkOrder = async (id, data, user) => {
       }
       
       if (updated.type === 'REPAIR' || updated.type === 'PREVENTIVE_MAINTENANCE') {
+        let nextPmDate = undefined;
+        if (updated.type === 'PREVENTIVE_MAINTENANCE' && wo.pmTaskId) {
+          const pmTask = await tx.pMTask.findUnique({ where: { id: wo.pmTaskId } });
+          await tx.pMTask.update({
+            where: { id: wo.pmTaskId },
+            data: { status: 'COMPLETED', completedAt: new Date() }
+          });
+
+          if (pmTask.recurrence) {
+            const date = new Date();
+            if (pmTask.recurrence === 'MONTHLY') date.setMonth(date.getMonth() + 1);
+            else if (pmTask.recurrence === 'QUARTERLY') date.setMonth(date.getMonth() + 3);
+            else if (pmTask.recurrence === 'SEMI_ANNUAL') date.setMonth(date.getMonth() + 6);
+            else if (pmTask.recurrence === 'ANNUAL') date.setFullYear(date.getFullYear() + 1);
+            nextPmDate = date;
+          }
+        }
+
         await tx.device.update({
           where: { id: wo.deviceId },
-          data: { status: 'OPERATIONAL' }
+          data: { 
+            status: 'OPERATIONAL',
+            lastPmDate: new Date(),
+            ...(nextPmDate !== undefined && { nextPmDate })
+          }
+        });
+      }
+    } else if (data.status === 'IN_PROGRESS' && wo.status !== 'IN_PROGRESS') {
+      const device = await tx.device.findUnique({ where: { id: wo.deviceId } });
+      if (device.status !== 'MAINTENANCE') {
+        await tx.device.update({
+          where: { id: wo.deviceId },
+          data: { status: 'MAINTENANCE' }
+        });
+        await logAction({
+          userId: user.id,
+          action: 'STATUS_CHANGED',
+          entity: 'Device',
+          entityId: device.assetCode,
+          oldValue: device,
+          newValue: { ...device, status: 'MAINTENANCE' },
+          tx
         });
       }
     }

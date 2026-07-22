@@ -6,7 +6,8 @@ import * as authService from './auth.service.js';
  * Helper to extract validation errors from Zod
  */
 const formatZodErrors = (error) => {
-  return error.errors.map(err => err.message).join(', ');
+  const issues = error.issues || error.errors || [];
+  return issues.map(err => err.message).join(', ');
 };
 
 /**
@@ -33,6 +34,7 @@ export const login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         initials: user.initials,
         theme: user.theme,
@@ -146,6 +148,7 @@ export const updateProfileHandler = async (req, res) => {
         id: updatedUser.id,
         name: updatedUser.name,
         email: updatedUser.email,
+        phone: updatedUser.phone,
         role: updatedUser.role,
         initials: updatedUser.initials,
         theme: updatedUser.theme,

@@ -86,6 +86,7 @@ export const useAuthStore = create((set) => ({
       console.error('Logout error', error)
     } finally {
       set({ user: null, isLoading: false })
+      window.location.href = '/login'
     }
   },
 

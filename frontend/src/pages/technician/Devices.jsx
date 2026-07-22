@@ -9,6 +9,7 @@ import Modal, { ModalCancelBtn } from '../../components/ui/Modal'
 import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
 import { useTranslation } from 'react-i18next'
 import deviceService from '../../api/deviceService'
+import faultReportService from '../../api/faultReportService'
 
 const isPastDue = (dateStr) => {
   if (!dateStr) return false;
@@ -46,7 +47,11 @@ export default function TechDevices() {
   
   const [showFaultModal, setShowFaultModal] = useState(false)
   const [showManualsModal, setShowManualsModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [selectedDevice, setSelectedDevice] = useState(null)
+  
+  const [faultDesc, setFaultDesc] = useState('')
+  const [faultUrgency, setFaultUrgency] = useState('MEDIUM')
   
   const { showToast } = useToastStore()
   const ROWS = 10
@@ -69,25 +74,38 @@ export default function TechDevices() {
     }),
   })
 
+  const { data: historyData, isLoading: isLoadingHistory } = useQuery({
+    queryKey: ['deviceHistory', selectedDevice?.id],
+    queryFn: () => deviceService.getDeviceById(selectedDevice.id),
+    enabled: !!selectedDevice && showHistoryModal,
+  })
+  const historyList = historyData?.data?.workOrders || []
+
   const devices = data?.items || []
   const meta = data?.meta || { totalItems: 0, totalPages: 1 }
 
   const faultMutation = useMutation({
-    mutationFn: (id) => deviceService.updateDeviceStatus(id, 'FAULTY'),
+    mutationFn: (data) => faultReportService.createFaultReport(data),
     onSuccess: () => {
       showToast(t('common.toastFaultLogged', { id: selectedDevice?.assetCode }), TOAST_COLORS.technician)
       setShowFaultModal(false)
+      setFaultDesc('')
+      setFaultUrgency('MEDIUM')
       queryClient.invalidateQueries({ queryKey: ['devices'] })
     },
-    onError: () => {
-      showToast('Failed to report fault', TOAST_COLORS.error)
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Failed to report fault', TOAST_COLORS.error)
     }
   })
 
   const handleReportFault = (e) => {
     e.preventDefault()
-    if (!selectedDevice) return
-    faultMutation.mutate(selectedDevice.id)
+    if (!selectedDevice || !faultDesc.trim()) return
+    faultMutation.mutate({
+      deviceId: selectedDevice.id,
+      description: faultDesc,
+      urgency: faultUrgency
+    })
   }
 
   return (
@@ -129,8 +147,8 @@ export default function TechDevices() {
                   <td className={clsx("p-4 text-[12px] whitespace-nowrap", isPastDue(d.nextPmDate) ? "text-[#F87171] font-bold" : "text-[var(--text-muted)]")}>{formatDate(d.nextPmDate)}</td>
                   <td className="p-4">
                     <div className="flex gap-2">
-                      <button onClick={() => { setSelectedDevice(d); setShowManualsModal(true) }} className="px-2.5 py-1 text-[11px] font-bold bg-transparent border border-[var(--border)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors">{t('common.manuals', 'Manuals')}</button>
-                      <button disabled={d.status === 'FAULTY'} onClick={() => { setSelectedDevice(d); setShowFaultModal(true) }} className="px-2.5 py-1 text-[11px] font-bold bg-transparent border border-[rgba(239,68,68,0.3)] text-[#F87171] rounded-md hover:bg-[rgba(239,68,68,0.1)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">{t('common.reportFault', 'Report Fault')}</button>
+                      <button onClick={() => { setSelectedDevice(d); setShowHistoryModal(true) }} className="w-[28px] h-[28px] rounded flex items-center justify-center border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors" title={t('devices.maintenanceHistory', 'Maintenance History')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-[14px] h-[14px]"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                      <button disabled={d.status === 'FAULTY'} onClick={() => { setSelectedDevice(d); setShowFaultModal(true) }} className="px-2.5 py-1 text-[11px] font-bold bg-transparent border rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-red-600 border-red-200 hover:bg-red-50 dark:text-[#F87171] dark:border-[rgba(239,68,68,0.3)] dark:hover:bg-[rgba(239,68,68,0.1)]">{t('common.reportFault', 'Report Fault')}</button>
                     </div>
                   </td>
                 </tr>
@@ -164,8 +182,24 @@ export default function TechDevices() {
         }
       >
         <form id="fault-form" onSubmit={handleReportFault} className="flex flex-col gap-[14px] mt-1">
-          <SelectField label={t('common.issueType')} defaultValue="Electrical" options={['Electrical', 'Mechanical', 'Calibration']} />
-          <InputField type="textarea" label={t('common.description')} placeholder={t('common.describeFault')} required />
+          <SelectField 
+            label={t('common.urgency', 'Urgency')} 
+            value={faultUrgency} 
+            onChange={(e) => setFaultUrgency(e.target.value)}
+            options={[
+              { value: 'LOW', label: 'Low' },
+              { value: 'MEDIUM', label: 'Medium' },
+              { value: 'HIGH', label: 'High' }
+            ]} 
+          />
+          <InputField 
+            type="textarea" 
+            label={t('common.description')} 
+            placeholder={t('common.describeFault')} 
+            value={faultDesc}
+            onChange={(e) => setFaultDesc(e.target.value)}
+            required 
+          />
         </form>
       </Modal>
 
@@ -188,6 +222,48 @@ export default function TechDevices() {
               <button onClick={() => showToast(t('common.toastDownloadStarted', { title: m.title }), TOAST_COLORS.info)} className="px-3 py-1.5 text-[11.5px] font-bold bg-transparent border border-[var(--border)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors">{t('common.download')}</button>
             </div>
           ))}
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showHistoryModal && !!selectedDevice}
+        onClose={() => setShowHistoryModal(false)}
+        title={t('devices.maintenanceHistory', 'Maintenance History')}
+        maxWidth="500px"
+        footer={
+          <ModalCancelBtn onClick={() => setShowHistoryModal(false)}>{t('common.close')}</ModalCancelBtn>
+        }
+      >
+        <div className="flex flex-col gap-4 mt-2">
+          <div className="text-[var(--text-secondary)] text-[0.85rem] font-semibold">{selectedDevice?.name} ({selectedDevice?.assetCode})</div>
+          
+          {isLoadingHistory ? (
+            <div className="text-center py-6 text-[var(--text-muted)] text-sm">{t('common.loading')}</div>
+          ) : historyList.length === 0 ? (
+            <div className="text-center py-6 text-[var(--text-muted)] text-sm">{t('devices.noHistoryFound', 'No maintenance history found.')}</div>
+          ) : (
+            <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-2">
+              {historyList.map(wo => (
+                <div key={wo.id} className="bg-[var(--bg-input)] border border-[var(--border)] rounded-lg p-3 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[13px] font-bold text-[var(--text-primary)]">{wo.workOrderNumber}</span>
+                    <span className="text-[11px] text-[var(--text-muted)] font-semibold">{formatDate(wo.resolvedAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-block px-1.5 py-0.5 bg-gray-500/10 text-[var(--text-secondary)] text-[10px] font-bold rounded">{wo.type}</span>
+                    <span className="text-[12px] text-[var(--text-secondary)]">
+                      {wo.assignedTo?.name ? `Resolved by ${wo.assignedTo.name}` : 'Resolved'}
+                    </span>
+                  </div>
+                  {wo.notes && (
+                    <div className="text-[12px] text-[var(--text-muted)] mt-1 italic border-l-2 border-[var(--border)] pl-2">
+                      "{wo.notes}"
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </Modal>
     </div>

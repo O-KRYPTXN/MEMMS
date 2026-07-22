@@ -17,7 +17,7 @@ const TaskStatusBadge = ({ status }) => {
   const { t } = useTranslation()
   const map = {
     'IN_PROGRESS': 'bg-amber-500/15 text-amber-700 dark:bg-[rgba(245,158,11,0.15)] dark:text-[#FCD34D]',
-    'WAITING_PARTS': 'bg-purple-500/15 text-purple-700 dark:bg-[rgba(139,92,246,0.15)] dark:text-[#A78BFA]',
+
     'PENDING_APPROVAL': 'bg-amber-500/15 text-amber-700 dark:bg-[rgba(245,158,11,0.15)] dark:text-[#FCD34D]',
     'OPEN': 'bg-blue-500/15 text-blue-700 dark:bg-[rgba(59,114,246,0.15)] dark:text-[#60A5FA]',
     'DONE': 'bg-green-700/10 text-green-800 dark:bg-[rgba(34,197,94,0.12)] dark:text-[#4ADE80]',
@@ -25,7 +25,7 @@ const TaskStatusBadge = ({ status }) => {
   }
   const labelMap = {
     'IN_PROGRESS': t('techDashboard.statusInProgress', 'In Progress'),
-    'WAITING_PARTS': t('techDashboard.statusWaitingParts', 'Waiting Parts'),
+
     'PENDING_APPROVAL': t('techDashboard.statusCompletedSolved', 'Pending Approval'),
     'OPEN': t('status.OPEN', 'Open'),
     'DONE': t('status.DONE', 'Done'),
@@ -58,12 +58,12 @@ export default function TechnicianDashboard() {
   const tasks = woData?.items || []
 
   // Derived State (KPIs)
-  const { activeTasks, completedCount, waitingCount } = useMemo(() => {
+  const { activeTasks, completedCount, pendingCount } = useMemo(() => {
     const active = tasks.filter(task => task.status !== 'DONE' && task.status !== 'CANCELLED')
     const completed = tasks.filter(task => task.status === 'DONE' || task.status === 'PENDING_APPROVAL').length
-    const waiting = active.filter(task => task.status === 'WAITING_PARTS').length
+    const pending = active.filter(task => task.status === 'PENDING_APPROVAL').length
 
-    return { activeTasks: active, completedCount: completed, waitingCount: waiting }
+    return { activeTasks: active, completedCount: completed, pendingCount: pending }
   }, [tasks])
 
   const updateMutation = useMutation({
@@ -102,7 +102,7 @@ export default function TechnicianDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { label: t('techDashboard.activeTasks'), value: activeTasks.length, icon: <path d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>, bg: 'bg-amber-600/10 text-amber-700 dark:bg-[rgba(245,158,11,0.15)] dark:text-[#FCD34D]' },
-          { label: t('techDashboard.waitingParts'), value: waitingCount, icon: <path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>, bg: 'bg-purple-600/10 text-purple-700 dark:bg-[rgba(168,85,247,0.15)] dark:text-[#C084FC]' },
+          { label: t('supWorkOrders.pendingApproval', 'Pending Approval'), value: pendingCount, icon: <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>, bg: 'bg-purple-600/10 text-purple-700 dark:bg-[rgba(168,85,247,0.15)] dark:text-[#C084FC]' },
           { label: t('techDashboard.completedMonth'), value: completedCount, icon: <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>, bg: 'bg-green-600/10 text-green-700 dark:bg-[rgba(34,197,94,0.15)] dark:text-[#4ADE80]' },
         ].map((kpi, i) => (
           <div key={i} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-[18px] flex flex-row items-center gap-[14px]">
@@ -162,7 +162,7 @@ export default function TechnicianDashboard() {
             onChange={e => setUpdateStatus(e.target.value)} 
             options={[
               { value: 'IN_PROGRESS', label: t('techDashboard.statusInProgress', 'In Progress') }, 
-              { value: 'WAITING_PARTS', label: t('techDashboard.statusWaitingParts', 'Waiting on Parts') }, 
+
               { value: 'PENDING_APPROVAL', label: t('techDashboard.statusCompletedSolved', 'Completed / Solved (Sent for Approval)') }
             ]} 
           />

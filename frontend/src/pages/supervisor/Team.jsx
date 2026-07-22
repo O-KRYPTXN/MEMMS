@@ -83,7 +83,7 @@ export default function SupervisorTeam() {
         title: t('roles.TECHNICIAN'),
         color: isOnline ? '#14B8A6' : '#5A6A85',
         status: isBusy ? 'busy' : isOnline ? 'online' : 'offline',
-        phone: tech.phone || t('supTeam.noPhone', 'No phone provided'),
+        phone: (tech.phone && tech.phone.trim() !== '') ? tech.phone : t('supTeam.noPhone', 'No phone provided'),
         email: tech.email,
         shift: t('supTeam.standardShift', 'Standard Shift'), // Not in schema, keeping generic
         tasksActive: activeAssignments.length,
@@ -185,7 +185,6 @@ export default function SupervisorTeam() {
               </div>
               <div className="flex-1 min-w-0 pr-5">
                 <div className="text-[0.95rem] font-bold text-[var(--text-primary)] truncate">{tItem.name}</div>
-                <div className="text-[0.8rem] text-[var(--text-muted)] truncate">{tItem.title}</div>
                 <div className="text-[0.75rem] text-[#14B8A6] truncate mt-0.5" title={tItem.email}>{tItem.email}</div>
                 <div className="text-[0.75rem] text-[var(--text-secondary)] truncate mt-0.5">{tItem.phone}</div>
                 <div className="mt-2"><StatusPill status={tItem.status} /></div>

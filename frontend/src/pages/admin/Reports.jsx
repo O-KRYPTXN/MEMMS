@@ -170,7 +170,13 @@ export default function Reports() {
   const renderPagination = () => (
     <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border)]">
       <span className="text-[0.8rem] text-[var(--text-muted)]">
-        {meta.total === 0 ? t('reports.noReports', 'No reports') : t('reports.showingResults', 'Showing results')} ({meta.total} total)
+        {meta.total === 0 
+          ? t('reports.noReports', 'No reports') 
+          : t('reports.showingResults', { 
+              start: (currentPage - 1) * ROWS_PER_PAGE + 1, 
+              end: Math.min(currentPage * ROWS_PER_PAGE, meta.total), 
+              total: meta.total 
+            })}
       </span>
       <div className="flex items-center gap-1">
         <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] text-[var(--text-secondary)] text-[0.8rem] disabled:opacity-30 disabled:cursor-default">‹</button>

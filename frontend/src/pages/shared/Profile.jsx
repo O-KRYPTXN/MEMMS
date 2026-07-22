@@ -25,6 +25,32 @@ const Toggle = ({ id, checked, onChange }) => (
   </label>
 )
 
+const calculateStrength = (password) => {
+  let score = 0;
+  if (!password) return score;
+  if (password.length >= 8) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[0-9]/.test(password)) score += 1;
+  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  return score;
+};
+
+const getStrengthColor = (score) => {
+  if (score <= 2) return 'bg-[#F87171] shadow-[0_0_8px_rgba(248,113,113,0.4)]';
+  if (score === 3) return 'bg-[#FBBF24] shadow-[0_0_8px_rgba(251,191,36,0.4)]';
+  if (score === 4) return 'bg-[#60A5FA] shadow-[0_0_8px_rgba(96,165,250,0.4)]';
+  return 'bg-[#4ADE80] shadow-[0_0_8px_rgba(74,222,128,0.4)]';
+};
+
+const getStrengthLabel = (score) => {
+  if (score === 0) return '';
+  if (score <= 2) return 'Weak';
+  if (score === 3) return 'Fair';
+  if (score === 4) return 'Good';
+  return 'Strong';
+};
+
 export default function Profile() {
   const { t } = useTranslation()
   const user = useAuthStore(state => state.user)
@@ -67,6 +93,11 @@ export default function Profile() {
     if (passwords.new !== passwords.confirm) {
       showToast(t('profile.toastPasswordMismatch', 'Passwords do not match'), TOAST_COLORS.error)
       return
+    }
+    const score = calculateStrength(passwords.new);
+    if (score <= 2) {
+      showToast(t('profile.toastWeakPassword', 'Password is too weak. Please use a stronger password.'), TOAST_COLORS.error);
+      return;
     }
     const result = await changePassword({
       currentPassword: passwords.current,
@@ -171,7 +202,40 @@ export default function Profile() {
                 <div className="sm:col-span-2">
                   <InputField type="password" label={t('profile.currentPassword')} value={passwords.current} onChange={e => setPasswords(p => ({...p, current: e.target.value}))} required />
                 </div>
-                <InputField type="password" label={t('profile.newPassword')} value={passwords.new} onChange={e => setPasswords(p => ({...p, new: e.target.value}))} required />
+                <div className="flex flex-col gap-2 w-full">
+                  <InputField type="password" label={t('profile.newPassword')} value={passwords.new} onChange={e => setPasswords(p => ({...p, new: e.target.value}))} required />
+                  <div className="mt-1 space-y-2 relative px-1">
+                    <div className="flex gap-1.5 h-1.5 w-full bg-[var(--bg-input)] rounded-full overflow-hidden">
+                      {[1, 2, 3, 4].map((index) => {
+                        const passwordScore = calculateStrength(passwords.new);
+                        return (
+                          <div
+                            key={index}
+                            className={clsx(
+                              'h-full flex-1 rounded-full transition-all duration-300',
+                              index <= passwordScore ? getStrengthColor(passwordScore) : 'bg-[var(--border)]'
+                            )}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-medium tracking-wide">
+                      <span className="text-[var(--text-muted)]">{t('profile.passwordStrength', 'Password Strength')}</span>
+                      <span className={clsx(
+                        'transition-colors duration-300',
+                        (() => {
+                           const passwordScore = calculateStrength(passwords.new);
+                           if (passwordScore <= 2) return 'text-[#F87171]';
+                           if (passwordScore === 3) return 'text-[#FBBF24]';
+                           if (passwordScore === 4) return 'text-[#60A5FA]';
+                           return 'text-[#4ADE80]';
+                        })()
+                      )}>
+                        {t(`profile.passwordScore${calculateStrength(passwords.new)}`, getStrengthLabel(calculateStrength(passwords.new)))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <InputField type="password" label={t('profile.confirmNewPassword')} value={passwords.confirm} onChange={e => setPasswords(p => ({...p, confirm: e.target.value}))} required />
                 <div className="sm:col-span-2 mt-2">
                   <button type="submit" className="w-full sm:w-auto px-6 py-2.5 bg-[#3B72F6] hover:bg-[#2563EB] text-white rounded-lg text-[13px] font-bold transition-colors min-w-[200px]">
