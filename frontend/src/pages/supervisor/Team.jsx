@@ -100,7 +100,7 @@ export default function SupervisorTeam() {
 
   // Unassigned active work orders to populate assignment dropdown
   const availableWorkOrders = useMemo(() => {
-    return workOrders.filter(wo => !['DONE', 'CANCELLED'].includes(wo.status))
+    return workOrders.filter(wo => wo.status === 'OPEN' && !wo.assignedToId)
   }, [workOrders])
 
   const assignMutation = useMutation({
@@ -112,7 +112,6 @@ export default function SupervisorTeam() {
     e.preventDefault()
     const formData = new FormData(e.target)
     const woId = formData.get('wo')
-    const priority = formData.get('priority')
     
     if (!woId) return showToast(t('supTeam.toastSelectWo'), TOAST_COLORS.error)
 
@@ -122,8 +121,7 @@ export default function SupervisorTeam() {
     assignMutation.mutate({
       id: woId,
       data: {
-        assignedToId: activeTech.id,
-        priority: priority
+        assignedToId: activeTech.id
       }
     }, {
       onSuccess: () => {
@@ -242,7 +240,6 @@ export default function SupervisorTeam() {
       >
         <form id="assign-task-form" onSubmit={handleAssignTask} className="flex flex-col gap-4 mt-1">
           <SelectField label={t('supTeam.selectWorkOrder')} name="wo" defaultValue="" placeholder={t('supTeam.selectWOPlaceholder')} options={availableWorkOrders.map(wo => ({ value: wo.id, label: `${wo.workOrderNumber || wo.id.slice(-6).toUpperCase()} — ${wo.device?.name || 'Device'} (${wo.device?.department?.name || 'Dept'})` }))} />
-          <SelectField label={t('common.priority')} name="priority" defaultValue="MEDIUM" placeholder="Select Priority" options={[{value: 'HIGH', label: t('priority.high')}, {value: 'MEDIUM', label: t('priority.medium')}, {value: 'LOW', label: t('priority.low')}]} />
           <InputField type="textarea" label={t('supTeam.notesOptional')} name="notes" placeholder={t('supTeam.specialInstructions')} />
         </form>
       </Modal>

@@ -117,17 +117,25 @@ export default function WorkOrders() {
 
   const tabCounts = useMemo(() => ({
     '': woList.length,
-    OPEN: woList.filter(w => w.status === 'OPEN').length,
-    IN_PROGRESS: woList.filter(w => w.status === 'IN_PROGRESS').length,
+    OPEN: woList.filter(w => w.status === 'OPEN' && !w.assignedToId).length,
+    IN_PROGRESS: woList.filter(w => w.status === 'IN_PROGRESS' || (w.status === 'OPEN' && !!w.assignedToId)).length,
     WAITING_PARTS: woList.filter(w => w.status === 'WAITING_PARTS').length,
     DONE: woList.filter(w => w.status === 'DONE').length,
   }), [woList])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
+    
+    const checkStatus = (filterVal, wo) => {
+      if (!filterVal) return true
+      if (filterVal === 'OPEN') return wo.status === 'OPEN' && !wo.assignedToId
+      if (filterVal === 'IN_PROGRESS') return wo.status === 'IN_PROGRESS' || (wo.status === 'OPEN' && !!wo.assignedToId)
+      return wo.status === filterVal
+    }
+
     return woList.filter(wo => {
-      const matchTab    = !activeTab   || wo.status === activeTab
-      const matchStatus = !statusFilter|| wo.status === statusFilter
+      const matchTab    = checkStatus(activeTab, wo)
+      const matchStatus = checkStatus(statusFilter, wo)
       const matchType   = !typeFilter  || wo.type === typeFilter
       const matchAssign = !assignedFilter || wo.assignedToId === assignedFilter
       const matchDept   = !deptFilter  || wo.device?.department?.name === deptFilter

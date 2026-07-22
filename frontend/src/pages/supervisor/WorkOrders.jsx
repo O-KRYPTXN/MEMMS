@@ -106,8 +106,16 @@ export default function WorkOrders() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
+
+    const checkStatus = (filterVal, wo) => {
+      if (filterVal === 'all' || !filterVal) return true
+      if (filterVal === 'OPEN') return wo.status === 'OPEN' && !wo.assignedToId
+      if (filterVal === 'IN_PROGRESS') return wo.status === 'IN_PROGRESS' || (wo.status === 'OPEN' && !!wo.assignedToId)
+      return wo.status === filterVal
+    }
+
     return wos.filter(w => {
-      const matchTab = activeTab === 'all' || w.status === activeTab
+      const matchTab = checkStatus(activeTab, w)
       const matchQ = !q || w.workOrderNumber.toLowerCase().includes(q) || w.device?.name?.toLowerCase().includes(q) || w.assignedTo?.name?.toLowerCase().includes(q)
       const matchType = !typeFilter || w.type === typeFilter
       const matchPri = !priorityFilter || w.priority === priorityFilter
@@ -119,8 +127,8 @@ export default function WorkOrders() {
 
   const counts = useMemo(() => ({
     all: wos.length,
-    OPEN: wos.filter(w => w.status === 'OPEN').length,
-    IN_PROGRESS: wos.filter(w => w.status === 'IN_PROGRESS').length,
+    OPEN: wos.filter(w => w.status === 'OPEN' && !w.assignedToId).length,
+    IN_PROGRESS: wos.filter(w => w.status === 'IN_PROGRESS' || (w.status === 'OPEN' && !!w.assignedToId)).length,
     PENDING_APPROVAL: wos.filter(w => w.status === 'PENDING_APPROVAL').length,
     DONE: wos.filter(w => w.status === 'DONE').length,
   }), [wos])

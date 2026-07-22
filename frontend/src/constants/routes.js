@@ -22,6 +22,7 @@ export const ROUTES = {
   SUPERVISOR_ADD_DEVICE: '/supervisor/devices/add',
   SUPERVISOR_INVENTORY: '/supervisor/inventory',
   SUPERVISOR_FAULT_REPORTS: '/supervisor/fault-reports',
+  SUPERVISOR_PM: '/supervisor/preventive-maintenance',
 
   // Technician
   TECH_DASHBOARD: '/technician/dashboard',

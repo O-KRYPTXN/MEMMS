@@ -31,6 +31,7 @@ import SupervisorTeam from '../pages/supervisor/Team'
 import SupervisorWorkOrders from '../pages/supervisor/WorkOrders'
 import SupervisorDevices from '../pages/supervisor/Devices'
 import SupervisorAddDevice from '../pages/supervisor/AddDevice'
+import SupervisorPM from '../pages/supervisor/PreventiveMaintenance'
 
 // Technician pages
 import TechDashboard from '../pages/technician/Dashboard'
@@ -104,6 +105,7 @@ const router = createBrowserRouter([
       { path: 'devices', element: <SupervisorDevices /> },
       { path: 'devices/add', element: <SupervisorAddDevice /> },
       { path: 'fault-reports', element: <SharedFaultReports /> },
+      { path: 'preventive-maintenance', element: <SupervisorPM /> },
       { path: 'profile', element: <Profile /> },
     ],
   },
