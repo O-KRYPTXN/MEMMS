@@ -1,1 +1,0 @@
-import prisma from './prisma/prisma.js'; async function main() { const reports = await prisma.faultReport.findMany(); console.log(reports); } main().catch(console.error).finally(() => prisma.$disconnect());
