@@ -41,6 +41,7 @@ export const login = async (req, res) => {
         language: user.language,
         department: user.department,
         departmentId: user.departmentId,
+        requiresPasswordChange: user.requiresPasswordChange,
       },
     });
   } catch (error) {

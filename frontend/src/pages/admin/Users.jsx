@@ -67,7 +67,7 @@ const TABS = [
 
 const ROLE_OPTS = [
   ['', 'all'], ['ADMIN', 'admin'], ['SUPERVISOR', 'supervisor'],
-  ['TECHNICIAN', 'technician'], ['DEPARTMENT', 'department']
+  ['TECHNICIAN', 'technician'], ['DEPARTMENT', 'department'], ['VIEWER', 'viewer']
 ];
 
 const selectCls = 'h-[36px] px-2.5 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-[0.8125rem] outline-none';
@@ -198,6 +198,7 @@ export default function Users() {
   const executeEdit = (data) => {
     const payload = {};
     if (data.name) payload.name = data.name;
+    if (data.phone !== undefined) payload.phone = data.phone;
     if (data.role) payload.role = data.role;
     if (data.department) payload.departmentId = data.department;
     updateMutation.mutate({ id: selectedUser.id, payload });
@@ -227,7 +228,7 @@ export default function Users() {
 
 
   const openAddModal = () => {
-    reset({ name: '', email: '', role: '', department: '' });
+    reset({ name: '', email: '', phone: '', password: '', role: '', department: '' });
     setShowAddModal(true);
   };
 
@@ -236,6 +237,7 @@ export default function Users() {
       reset({ 
         name: selectedUser.name, 
         email: selectedUser.email, 
+        phone: selectedUser.phone || '',
         role: selectedUser.role, 
         department: selectedUser.department?.id || '' 
       });
@@ -426,6 +428,18 @@ export default function Users() {
 
           <InputField label={t('users.name')} name="name" {...register('name', { required: true })} placeholder="e.g. John Doe" required />
           <InputField type="email" label={t('users.email')} name="email" {...register('email', { required: showAddModal })} placeholder="e.g. jdoe@hospital.com" required={showAddModal} disabled={showEditModal} />
+          <InputField label={t('profile.phone', 'Phone Number')} name="phone" {...register('phone')} placeholder="e.g. +1 234 567 8900" />
+          
+          {showAddModal && (
+            <InputField 
+              type="password" 
+              label={t('users.password', 'Initial Password')} 
+              name="password" 
+              {...register('password', { required: showAddModal, minLength: 8 })} 
+              placeholder="•••••••• (min 8 characters)" 
+              required={showAddModal} 
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-[14px]">
             <SelectField 

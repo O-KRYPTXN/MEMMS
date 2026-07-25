@@ -57,7 +57,7 @@ export const createUser = catchAsync(async (req, res) => {
 
     const newUser = await userService.createUser(parsed.data, req.user.id);
     res.status(201).json({
-      message: 'User created successfully. An activation email has been sent.',
+      message: 'User created successfully. They will be required to change their password on first login.',
       data: newUser
     });
   } catch (error) {

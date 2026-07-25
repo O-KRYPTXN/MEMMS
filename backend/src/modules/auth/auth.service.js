@@ -64,6 +64,7 @@ export const getUserById = async (id) => {
       theme: true,
       language: true,
       departmentId: true,
+      requiresPasswordChange: true,
       department: {
         select: { name: true, code: true }
       }
@@ -88,6 +89,7 @@ export const getUserForMiddleware = async (id) => {
       departmentId: true,
       isActive: true,
       isSuspended: true,
+      requiresPasswordChange: true,
     },
   });
 
@@ -246,7 +248,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash }
+    data: { passwordHash, requiresPasswordChange: false }
   });
 
   await logAction({

@@ -1,6 +1,7 @@
 export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
+  FORCE_PASSWORD_CHANGE: '/auth/force-change-password',
 
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',

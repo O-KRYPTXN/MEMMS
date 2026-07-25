@@ -13,6 +13,7 @@ import ViewerLayout from '../layouts/ViewerLayout'
 // Auth
 import Login from '../pages/auth/Login'
 import Signup from '../pages/auth/Signup'
+import ForcePasswordChange from '../pages/auth/ForcePasswordChange'
 
 // Admin pages
 import AdminDashboard from '../pages/admin/Dashboard'
@@ -62,6 +63,7 @@ const router = createBrowserRouter([
   { path: ROUTES.LOGIN, element: <Login /> },
   { path: ROUTES.SIGNUP, element: <Signup /> },
   { path: ROUTES.UNAUTHORIZED, element: <Unauthorized /> },
+  { path: ROUTES.FORCE_PASSWORD_CHANGE, element: <ProtectedRoute><ForcePasswordChange /></ProtectedRoute> },
 
   // Admin routes
   {

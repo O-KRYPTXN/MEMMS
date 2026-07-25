@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
 // Roles accepted by the system
-const RoleEnum = z.enum(['ADMIN', 'SUPERVISOR', 'TECHNICIAN', 'DEPARTMENT']);
+const RoleEnum = z.enum(['ADMIN', 'SUPERVISOR', 'TECHNICIAN', 'DEPARTMENT', 'VIEWER']);
 
 export const createUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
   role: RoleEnum,
   departmentId: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
 });
 
 export const updateUserSchema = z.object({
@@ -15,6 +17,7 @@ export const updateUserSchema = z.object({
   email: z.string().email('Invalid email address').optional(),
   role: RoleEnum.optional(),
   departmentId: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
 });
 
 export const updateUserStatusSchema = z.object({

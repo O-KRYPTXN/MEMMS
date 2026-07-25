@@ -5,6 +5,7 @@ import DataTable from '../../components/tables/DataTable'
 import { formatDate } from '../../utils/formatDate'
 import { useDebounce } from '../../hooks/useDebounce'
 import { useTranslation } from 'react-i18next'
+import Modal from '../../components/ui/Modal'
 
 const formatAction = (action) => {
   return action.replace(/_/g, ' ')
@@ -164,66 +165,57 @@ const AuditLogs = () => {
       </div>
 
       {/* Details Modal */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-              <div>
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{t('admin.audit.detailsTitle', 'Audit Log Details')}</h3>
-                <p className="text-sm text-[var(--text-muted)] mt-1">{formatDate(selectedLog.createdAt)}</p>
+      <Modal
+        isOpen={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        title={t('admin.audit.detailsTitle', 'Audit Log Details')}
+        maxWidth="42rem"
+      >
+        {selectedLog && (
+          <div className="space-y-6 pb-2">
+            <p className="text-sm text-[var(--text-muted)] -mt-2">{formatDate(selectedLog.createdAt)}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[var(--bg-hover)] p-3 rounded-lg">
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">{t('admin.audit.actor', 'Actor')}</div>
+                <div className="font-medium text-[var(--text-primary)]">{selectedLog.user?.name || t('admin.audit.system', 'System')}</div>
+                <div className="text-sm text-[var(--text-secondary)]">{selectedLog.user?.role}</div>
               </div>
-              <button 
-                onClick={() => setSelectedLog(null)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                ✕
-              </button>
+              <div className="bg-[var(--bg-hover)] p-3 rounded-lg">
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">{t('admin.audit.targetEntity', 'Target Entity')}</div>
+                <div className="font-medium text-[var(--text-primary)]">{selectedLog.entity}</div>
+                <div className="text-sm font-mono text-[var(--text-secondary)]">#{selectedLog.entityId}</div>
+              </div>
             </div>
-            
-            <div className="p-5 overflow-y-auto space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[var(--bg-hover)] p-3 rounded-lg">
-                  <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">{t('admin.audit.actor', 'Actor')}</div>
-                  <div className="font-medium text-[var(--text-primary)]">{selectedLog.user?.name || t('admin.audit.system', 'System')}</div>
-                  <div className="text-sm text-[var(--text-secondary)]">{selectedLog.user?.role}</div>
-                </div>
-                <div className="bg-[var(--bg-hover)] p-3 rounded-lg">
-                  <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">{t('admin.audit.targetEntity', 'Target Entity')}</div>
-                  <div className="font-medium text-[var(--text-primary)]">{selectedLog.entity}</div>
-                  <div className="text-sm font-mono text-[var(--text-secondary)]">#{selectedLog.entityId}</div>
-                </div>
-              </div>
 
-              <div>
-                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.description', 'Description')}</div>
-                <p className="text-[var(--text-primary)]">{selectedLog.description}</p>
-              </div>
-
-              {selectedLog.oldValue && (
-                <div>
-                  <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.previousState', 'Previous State')}</div>
-                  <pre className="bg-[#111827] text-[#A7F3D0] p-4 rounded-lg overflow-x-auto text-xs font-mono border border-[var(--border)]">
-                    {typeof selectedLog.oldValue === 'string' && selectedLog.oldValue.startsWith('{') 
-                      ? JSON.stringify(JSON.parse(selectedLog.oldValue), null, 2)
-                      : selectedLog.oldValue}
-                  </pre>
-                </div>
-              )}
-
-              {selectedLog.newValue && (
-                <div>
-                  <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.newState', 'New State')}</div>
-                  <pre className="bg-[#111827] text-[#60A5FA] p-4 rounded-lg overflow-x-auto text-xs font-mono border border-[var(--border)]">
-                    {typeof selectedLog.newValue === 'string' && selectedLog.newValue.startsWith('{')
-                      ? JSON.stringify(JSON.parse(selectedLog.newValue), null, 2)
-                      : selectedLog.newValue}
-                  </pre>
-                </div>
-              )}
+            <div>
+              <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.description', 'Description')}</div>
+              <p className="text-[var(--text-primary)]">{selectedLog.description}</p>
             </div>
+
+            {selectedLog.oldValue && (
+              <div>
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.previousState', 'Previous State')}</div>
+                <pre className="bg-[#111827] text-[#A7F3D0] p-4 rounded-lg overflow-x-auto text-xs font-mono border border-[var(--border)]">
+                  {typeof selectedLog.oldValue === 'string' && selectedLog.oldValue.startsWith('{') 
+                    ? JSON.stringify(JSON.parse(selectedLog.oldValue), null, 2)
+                    : selectedLog.oldValue}
+                </pre>
+              </div>
+            )}
+
+            {selectedLog.newValue && (
+              <div>
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2">{t('admin.audit.newState', 'New State')}</div>
+                <pre className="bg-[#111827] text-[#60A5FA] p-4 rounded-lg overflow-x-auto text-xs font-mono border border-[var(--border)]">
+                  {typeof selectedLog.newValue === 'string' && selectedLog.newValue.startsWith('{')
+                    ? JSON.stringify(JSON.parse(selectedLog.newValue), null, 2)
+                    : selectedLog.newValue}
+                </pre>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

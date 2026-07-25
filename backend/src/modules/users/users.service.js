@@ -102,7 +102,7 @@ export const getUserById = async (id) => {
  * Create a new user (Admin bypasses registration requests)
  */
 export const createUser = async (data, executorId) => {
-  let { name, email, role, departmentId } = data;
+  let { name, email, password, role, departmentId, phone } = data;
 
   if (role === 'ADMIN') {
     departmentId = null;
@@ -113,9 +113,8 @@ export const createUser = async (data, executorId) => {
     throw new AppError('A user with this email already exists', 400);
   }
 
-  // Generate a random temporary password for admin-created accounts
-  const tempPassword = crypto.randomBytes(8).toString('hex');
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  // Hash the provided password
+  const passwordHash = await bcrypt.hash(password, 10);
 
   const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
@@ -123,10 +122,12 @@ export const createUser = async (data, executorId) => {
     data: {
       name,
       email,
+      phone,
       passwordHash,
       role,
       departmentId,
       initials,
+      requiresPasswordChange: true,
     },
     select: {
       id: true,
@@ -138,7 +139,7 @@ export const createUser = async (data, executorId) => {
 
   await logAction({
     userId: executorId,
-    action: 'CREATED',
+    action: 'USER_CREATED',
     entity: 'User',
     entityId: newUser.email,
     newValue: newUser
