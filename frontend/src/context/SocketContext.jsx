@@ -4,6 +4,7 @@ import { socket } from '../socket/socket';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useToastStore, TOAST_COLORS } from '../store/toastStore';
+import { SOCKET_EVENTS } from '../constants/socketEvents';
 
 const SocketContext = createContext();
 
@@ -17,39 +18,38 @@ export const SocketProvider = ({ children }) => {
   
   const isConnected = useRef(false);
 
+  // ── Connection lifecycle ─────────────────────────────────────────────────
   useEffect(() => {
-    // Connect only if user is logged in
     if (user && !isConnected.current) {
       socket.connect();
       isConnected.current = true;
     }
 
-    // Disconnect if user logs out
     if (!user && isConnected.current) {
       socket.disconnect();
       isConnected.current = false;
     }
   }, [user]);
 
+  // ── Event handlers ───────────────────────────────────────────────────────
   useEffect(() => {
+    // ── Connection events ────────────────────────────────────────────────
     const onConnect = () => {
-      console.log('🔌 Socket connected successfully');
-      // Resynchronize on reconnect
+      // Resynchronize stale data that may have changed while disconnected
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
     };
 
     const onDisconnect = () => {
-      console.log('🔌 Socket disconnected');
+      // No action needed — React Query will refetch on next window focus
     };
 
+    // ── Notification events (existing) ──────────────────────────────────
     const onNotificationNew = (alert) => {
       incrementUnread();
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
-      queryClient.invalidateQueries({ queryKey: ['parts'] });
 
-
-      // Toast for high priority alerts
-      if (alert?.type === 'CRITICAL' || alert?.type === 'HIGH' || alert?.type === 'WARNING') {
+      // Toast for high-priority alerts
+      if (alert?.type === 'CRITICAL' || alert?.type === 'WARNING') {
         const color = alert.type === 'CRITICAL' ? TOAST_COLORS.error : TOAST_COLORS.warning;
         showToast(alert.title || 'Important Alert', color);
       }
@@ -71,20 +71,94 @@ export const SocketProvider = ({ children }) => {
       }
     };
 
+    // ── Fault Report events ──────────────────────────────────────────────
+    const onFaultReportCreated = () => {
+      queryClient.invalidateQueries({ queryKey: ['faultReports'] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    };
+
+    const onFaultReportUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['faultReports'] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+
+    // ── Work Order events ────────────────────────────────────────────────
+    const onWorkOrderCreated = () => {
+      queryClient.invalidateQueries({ queryKey: ['workOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+
+    const onWorkOrderAssigned = () => {
+      queryClient.invalidateQueries({ queryKey: ['workOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['team'] });
+    };
+
+    const onWorkOrderUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['workOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+
+    const onWorkOrderCompleted = () => {
+      queryClient.invalidateQueries({ queryKey: ['workOrders'] })
+      queryClient.invalidateQueries({ queryKey: ['faultReports'] })
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] })
+      queryClient.invalidateQueries({ queryKey: ['pmTasks'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    };
+
+    // ── Device events ────────────────────────────────────────────────────
+    const onDeviceUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] })
+      queryClient.invalidateQueries({ queryKey: ['deviceStats'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    };
+
+    // ── Register listeners ───────────────────────────────────────────────
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    socket.on('notification:new', onNotificationNew);
-    socket.on('notification:read', onNotificationRead);
-    socket.on('notification:read-all', onNotificationReadAll);
-    socket.on('notification:count', onNotificationCount);
 
+    socket.on(SOCKET_EVENTS.NOTIFICATION_NEW, onNotificationNew);
+    socket.on(SOCKET_EVENTS.NOTIFICATION_READ, onNotificationRead);
+    socket.on(SOCKET_EVENTS.NOTIFICATION_READ_ALL, onNotificationReadAll);
+    socket.on(SOCKET_EVENTS.NOTIFICATION_COUNT, onNotificationCount);
+
+    socket.on(SOCKET_EVENTS.FAULT_REPORT_CREATED, onFaultReportCreated);
+    socket.on(SOCKET_EVENTS.FAULT_REPORT_UPDATED, onFaultReportUpdated);
+
+    socket.on(SOCKET_EVENTS.WORK_ORDER_CREATED, onWorkOrderCreated);
+    socket.on(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, onWorkOrderAssigned);
+    socket.on(SOCKET_EVENTS.WORK_ORDER_UPDATED, onWorkOrderUpdated);
+    socket.on(SOCKET_EVENTS.WORK_ORDER_COMPLETED, onWorkOrderCompleted);
+
+    socket.on(SOCKET_EVENTS.DEVICE_UPDATED, onDeviceUpdated);
+
+    // ── Cleanup ──────────────────────────────────────────────────────────
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
-      socket.off('notification:new', onNotificationNew);
-      socket.off('notification:read', onNotificationRead);
-      socket.off('notification:read-all', onNotificationReadAll);
-      socket.off('notification:count', onNotificationCount);
+
+      socket.off(SOCKET_EVENTS.NOTIFICATION_NEW, onNotificationNew);
+      socket.off(SOCKET_EVENTS.NOTIFICATION_READ, onNotificationRead);
+      socket.off(SOCKET_EVENTS.NOTIFICATION_READ_ALL, onNotificationReadAll);
+      socket.off(SOCKET_EVENTS.NOTIFICATION_COUNT, onNotificationCount);
+
+      socket.off(SOCKET_EVENTS.FAULT_REPORT_CREATED, onFaultReportCreated);
+      socket.off(SOCKET_EVENTS.FAULT_REPORT_UPDATED, onFaultReportUpdated);
+
+      socket.off(SOCKET_EVENTS.WORK_ORDER_CREATED, onWorkOrderCreated);
+      socket.off(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, onWorkOrderAssigned);
+      socket.off(SOCKET_EVENTS.WORK_ORDER_UPDATED, onWorkOrderUpdated);
+      socket.off(SOCKET_EVENTS.WORK_ORDER_COMPLETED, onWorkOrderCompleted);
+
+      socket.off(SOCKET_EVENTS.DEVICE_UPDATED, onDeviceUpdated);
     };
   }, [queryClient, incrementUnread, decrementUnread, setUnreadCount, showToast]);
 

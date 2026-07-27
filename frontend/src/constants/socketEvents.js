@@ -1,5 +1,9 @@
+/**
+ * Frontend mirror of backend SOCKET_EVENTS constants.
+ * Import from here — never hardcode event name strings.
+ */
 export const SOCKET_EVENTS = {
-  // ── Notifications (existing) ─────────────────────────────────────────────
+  // ── Notifications ────────────────────────────────────────────────────────
   NOTIFICATION_NEW: 'notification:new',
   NOTIFICATION_READ: 'notification:read',
   NOTIFICATION_READ_ALL: 'notification:read-all',

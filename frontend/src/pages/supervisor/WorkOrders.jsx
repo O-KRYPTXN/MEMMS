@@ -10,6 +10,8 @@ import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
 import { useTranslation } from 'react-i18next'
 import workOrderService from '../../api/workOrderService'
 import * as usersService from '../../api/usersService'
+import { useSocket } from '../../context/SocketContext'
+import { SOCKET_EVENTS } from '../../constants/socketEvents'
 
 const formatDate = (dateString) => {
   if (!dateString) return '—'
@@ -102,7 +104,25 @@ export default function WorkOrders() {
     }
   }
 
+  const { socket } = useSocket()
+
   useEffect(() => { loadData() }, [])
+
+  // Re-fetch whenever the server signals any work order change
+  useEffect(() => {
+    if (!socket) return
+    const refresh = () => loadData()
+    socket.on(SOCKET_EVENTS.WORK_ORDER_CREATED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_UPDATED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_COMPLETED, refresh)
+    return () => {
+      socket.off(SOCKET_EVENTS.WORK_ORDER_CREATED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_UPDATED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_COMPLETED, refresh)
+    }
+  }, [socket])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()

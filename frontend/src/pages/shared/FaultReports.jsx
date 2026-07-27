@@ -10,6 +10,8 @@ import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
 import faultReportService from '../../api/faultReportService'
 import workOrderService from '../../api/workOrderService'
 import * as usersService from '../../api/usersService'
+import { useSocket } from '../../context/SocketContext'
+import { SOCKET_EVENTS } from '../../constants/socketEvents'
 
 const formatDate = (dateString) => {
   if (!dateString) return '—'
@@ -48,6 +50,8 @@ export default function SharedFaultReports() {
   const { showToast } = useToastStore()
   const ROWS = 10
 
+  const { socket } = useSocket()
+
   const loadData = async () => {
     try {
       const [reportsRes, techRes] = await Promise.all([
@@ -62,6 +66,20 @@ export default function SharedFaultReports() {
   }
 
   useEffect(() => { loadData() }, [])
+
+  // Re-fetch whenever the server signals a fault report or work order change
+  useEffect(() => {
+    if (!socket) return
+    const refresh = () => loadData()
+    socket.on(SOCKET_EVENTS.FAULT_REPORT_CREATED, refresh)
+    socket.on(SOCKET_EVENTS.FAULT_REPORT_UPDATED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_CREATED, refresh)
+    return () => {
+      socket.off(SOCKET_EVENTS.FAULT_REPORT_CREATED, refresh)
+      socket.off(SOCKET_EVENTS.FAULT_REPORT_UPDATED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_CREATED, refresh)
+    }
+  }, [socket])
 
   const filtered = useMemo(() => {
     return reports.filter(r => {

@@ -52,7 +52,7 @@ export default function SupervisorTeam() {
 
   // 1. Fetch Technicians
   const { data: techsData, isLoading: isLoadingTechs } = useQuery({
-    queryKey: ['users', 'TECHNICIAN', queryParams],
+    queryKey: ['team', queryParams],
     queryFn: () => usersService.getUsers({ role: 'TECHNICIAN', ...queryParams, limit: 100 })
   })
   const rawTechnicians = techsData?.items || []

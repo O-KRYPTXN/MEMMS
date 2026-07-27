@@ -3,6 +3,8 @@ import { formatPaginatedResponse } from '../../utils/pagination.util.js';
 
 import { AppError } from '../../utils/AppError.js';
 import { logAction } from '../auditLogs/auditLogs.service.js';
+import { emitToRoles } from '../../socket/socket.service.js';
+import { SOCKET_EVENTS } from '../../socket/socket.events.js';
 
 /**
  * Generate a unique Asset Code (e.g. DEV-0001)
@@ -164,14 +166,14 @@ export const createDevice = async (data, executorId) => {
 export const updateDevice = async (id, data, executorId) => {
   const device = await prisma.device.findUnique({ where: { id } });
   if (!device) {
-    throw new DeviceServiceError('Device not found', 404);
+    throw new AppError('Device not found', 404);
   }
 
   // If changing serial number, check for duplicates
   if (data.serialNumber && data.serialNumber !== device.serialNumber) {
     const existing = await prisma.device.findUnique({ where: { serialNumber: data.serialNumber } });
     if (existing) {
-      throw new DeviceServiceError('A device with this serial number already exists', 400);
+      throw new AppError('A device with this serial number already exists', 400);
     }
   }
 
@@ -189,10 +191,13 @@ export const updateDevice = async (id, data, executorId) => {
     userId: executorId,
     action: 'UPDATED',
     entity: 'Device',
-    entityId: existing.assetCode,
+    entityId: device.assetCode,
     oldValue: device,
     newValue: updated
   });
+
+  // Notify supervisors, admins, and technicians of device metadata change
+  emitToRoles(['SUPERVISOR', 'ADMIN', 'TECHNICIAN'], SOCKET_EVENTS.DEVICE_UPDATED, { deviceId: id });
 
   return updated;
 };
@@ -203,7 +208,7 @@ export const updateDevice = async (id, data, executorId) => {
 export const updateDeviceStatus = async (id, status, executorId) => {
   const device = await prisma.device.findUnique({ where: { id } });
   if (!device) {
-    throw new DeviceServiceError('Device not found', 404);
+    throw new AppError('Device not found', 404);
   }
 
   const updated = await prisma.device.update({
@@ -225,6 +230,9 @@ export const updateDeviceStatus = async (id, status, executorId) => {
     newValue: { status }
   });
 
+  // Notify supervisors, admins, and technicians of device status change
+  emitToRoles(['SUPERVISOR', 'ADMIN', 'TECHNICIAN'], SOCKET_EVENTS.DEVICE_UPDATED, { deviceId: id, status });
+
   return updated;
 };
 
@@ -234,7 +242,7 @@ export const updateDeviceStatus = async (id, status, executorId) => {
 export const deleteDevice = async (id) => {
   const device = await prisma.device.findUnique({ where: { id } });
   if (!device) {
-    throw new DeviceServiceError('Device not found', 404);
+    throw new AppError('Device not found', 404);
   }
 
   // Note: Depending on the schema, if a device has active Work Orders or PM tasks, 
@@ -244,6 +252,6 @@ export const deleteDevice = async (id) => {
     await prisma.device.delete({ where: { id } });
     return true;
   } catch (err) {
-    throw new DeviceServiceError('Cannot delete device because it has associated records (e.g., Work Orders). Try decommissioning it instead.', 400);
+    throw new AppError('Cannot delete device because it has associated records (e.g., Work Orders). Try decommissioning it instead.', 400);
   }
 };

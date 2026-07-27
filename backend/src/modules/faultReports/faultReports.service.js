@@ -2,6 +2,8 @@ import prisma from '../../../prisma/prisma.js';
 import { formatPaginatedResponse } from '../../utils/pagination.util.js';
 import { AppError } from '../../utils/AppError.js';
 import { createAlert } from '../alerts/alerts.service.js';
+import { emitToRoles } from '../../socket/socket.service.js';
+import { SOCKET_EVENTS } from '../../socket/socket.events.js';
 
 export const createFaultReport = async (data, userId) => {
   const { deviceId, description, urgency } = data;
@@ -88,6 +90,11 @@ export const createFaultReport = async (data, userId) => {
     }, tx);
 
     return report;
+  });
+
+  // Emit after transaction commits — supervisors and admins need to know
+  emitToRoles(['SUPERVISOR', 'ADMIN'], SOCKET_EVENTS.FAULT_REPORT_CREATED, {
+    faultReportId: result.id
   });
 
   return result;
@@ -183,6 +190,14 @@ export const updateFaultReport = async (id, data) => {
       subtitle: `Your fault report for device #${report.deviceId} has been resolved`,
       userId: report.submittedById,
       faultReportId: report.id
+    });
+  }
+
+  // Notify supervisors and admins whenever a fault report status changes
+  if (data.status && data.status !== report.status) {
+    emitToRoles(['SUPERVISOR', 'ADMIN'], SOCKET_EVENTS.FAULT_REPORT_UPDATED, {
+      faultReportId: id,
+      status: data.status
     });
   }
 

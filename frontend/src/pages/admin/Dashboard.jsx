@@ -61,14 +61,13 @@ const Dashboard = () => {
   const [alertsCleared, setAlertsCleared] = useState(false)
 
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ['dashboardMetrics'],
+    queryKey: ['dashboard'],
     queryFn: getDashboardMetrics,
   })
 
   const { data: alertsRes } = useQuery({
     queryKey: ['alerts'],
     queryFn: () => getAlerts({ limit: 5 }),
-    refetchInterval: 30000
   })
   
   const alertsData = alertsRes?.data || [];

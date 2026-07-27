@@ -9,6 +9,8 @@ import Modal, { ModalCancelBtn, ModalPrimaryBtn } from '../../components/ui/Moda
 import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
 import { useTranslation } from 'react-i18next'
 import workOrderService from '../../api/workOrderService'
+import { useSocket } from '../../context/SocketContext'
+import { SOCKET_EVENTS } from '../../constants/socketEvents'
 
 const formatDate = (dateString) => {
   if (!dateString) return '—'
@@ -94,7 +96,23 @@ export default function TechnicianWorkOrders() {
     }
   }
 
+  const { socket } = useSocket()
+
   useEffect(() => { loadData() }, [])
+
+  // Re-fetch whenever the server signals a work order change relevant to this technician
+  useEffect(() => {
+    if (!socket) return
+    const refresh = () => loadData()
+    socket.on(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_UPDATED, refresh)
+    socket.on(SOCKET_EVENTS.WORK_ORDER_COMPLETED, refresh)
+    return () => {
+      socket.off(SOCKET_EVENTS.WORK_ORDER_ASSIGNED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_UPDATED, refresh)
+      socket.off(SOCKET_EVENTS.WORK_ORDER_COMPLETED, refresh)
+    }
+  }, [socket])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()

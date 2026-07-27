@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAlerts, markAsRead, markAllAsRead } from '../../api/alertsService';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useAuthStore } from '../../store/authStore';
 import AlertItem from '../ui/AlertItem';
 import { formatDate } from '../../utils/formatDate';
 import { Link, useNavigate } from 'react-router-dom';
@@ -49,7 +50,6 @@ const NotificationCenter = ({ onClose }) => {
   const { data, isLoading } = useQuery({
     queryKey: ['alerts'],
     queryFn: () => getAlerts({ limit: 50 }),
-    refetchInterval: 30000 // refetch every 30s while open
   });
 
   const markReadMutation = useMutation({
@@ -68,21 +68,29 @@ const NotificationCenter = ({ onClose }) => {
     }
   });
 
+  const user = useAuthStore(s => s.user);
+
   const handleAlertClick = (alert) => {
     if (!alert.isRead) {
       markReadMutation.mutate(alert.id);
     }
 
+    const role = user?.role || 'ADMIN';
+    const base = role === 'SUPERVISOR' ? '/supervisor' : 
+                 role === 'TECHNICIAN' ? '/technician' : 
+                 role === 'DEPARTMENT' ? '/department' : '/admin';
+
     if (alert.workOrderId) {
-      navigate(`/admin/work-orders?search=${alert.workOrderId}`);
+      navigate(`${base}/work-orders?search=${alert.workOrderId}`);
     } else if (alert.pmTaskId) {
-      navigate(`/admin/pm-tasks?search=${alert.pmTaskId}`);
+      if (role === 'TECHNICIAN') navigate(`${base}/work-orders`);
+      else navigate(`${base}/preventive-maintenance?search=${alert.pmTaskId}`);
     } else if (alert.faultReportId) {
-      navigate(`/admin/fault-reports?search=${alert.faultReportId}`);
-
+      if (role === 'DEPARTMENT') navigate(`${base}/requests?search=${alert.faultReportId}`);
+      else if (role === 'TECHNICIAN') navigate(`${base}/dashboard`);
+      else navigate(`${base}/fault-reports?search=${alert.faultReportId}`);
     } else if (alert.deviceId) {
-      navigate(`/admin/devices?search=${alert.deviceId}`);
-
+      navigate(`${base}/devices?search=${alert.deviceId}`);
     }
     
     onClose();
