@@ -25,3 +25,13 @@ export const updateDeviceSchema = z.object({
 export const updateStatusSchema = z.object({
   status: z.enum(['OPERATIONAL', 'FAULTY', 'MAINTENANCE', 'DECOMMISSIONED'])
 });
+
+export const retireDeviceSchema = z.object({
+  reason: z.string().min(5, 'Retirement reason must be at least 5 characters')
+});
+
+export const restoreDeviceSchema = z.object({
+  status: z.enum(['OPERATIONAL', 'FAULTY'], {
+    errorMap: () => ({ message: 'Restore status must be OPERATIONAL or FAULTY' })
+  })
+});

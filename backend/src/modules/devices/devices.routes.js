@@ -3,7 +3,7 @@ import { protect } from '../../middleware/auth.middleware.js';
 import { requireRoles } from '../../middleware/authorize.middleware.js';
 import { validateRequest } from '../../middleware/validate.middleware.js';
 import * as devicesController from './devices.controller.js';
-import { createDeviceSchema, updateDeviceSchema, updateStatusSchema } from './devices.validation.js';
+import { createDeviceSchema, updateDeviceSchema, updateStatusSchema, retireDeviceSchema, restoreDeviceSchema } from './devices.validation.js';
 
 const router = express.Router();
 
@@ -48,6 +48,22 @@ router.delete(
   '/:id',
   requireRoles('ADMIN'),
   devicesController.deleteDevice
+);
+
+// PATCH /api/devices/:id/retire (Retire device) - Admin only
+router.patch(
+  '/:id/retire',
+  requireRoles('ADMIN'),
+  validateRequest(retireDeviceSchema),
+  devicesController.retireDevice
+);
+
+// PATCH /api/devices/:id/restore (Restore a decommissioned device) - Admin only
+router.patch(
+  '/:id/restore',
+  requireRoles('ADMIN'),
+  validateRequest(restoreDeviceSchema),
+  devicesController.restoreDevice
 );
 
 export default router;

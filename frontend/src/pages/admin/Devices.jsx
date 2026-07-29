@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import Panel from '../../components/ui/Panel'
-import Modal, { ModalCancelBtn } from '../../components/ui/Modal'
+import Modal, { ModalCancelBtn, ModalPrimaryBtn } from '../../components/ui/Modal'
 import KPICard from '../../components/ui/KPICard'
 import StatusBadge from '../../components/ui/StatusBadge'
 import DataTable from '../../components/tables/DataTable'
@@ -11,6 +11,10 @@ import { ROUTES } from '../../constants/routes'
 import { useTranslation } from 'react-i18next'
 import deviceService from '../../api/deviceService'
 import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
+import { useForm } from 'react-hook-form'
+import InputField from '../../components/forms/InputField'
+import SelectField from '../../components/forms/SelectField'
+import * as departmentsService from '../../api/departmentsService'
 
 const ROWS_PER_PAGE = 5
 
@@ -24,8 +28,8 @@ const STATUS_OPTIONS = [
 
 const TABS = [
   { tKey: 'devices.tabAll', value: '' },
-  { tKey: 'devices.tabActive', value: 'OPERATIONAL' },
-  { tKey: 'devices.tabOffline', value: 'FAULTY' },
+  { tKey: 'status.operational', value: 'OPERATIONAL' },
+  { tKey: 'status.faulty', value: 'FAULTY' },
   { tKey: 'devices.tabMaintenance', value: 'MAINTENANCE' },
   { tKey: 'devices.tabRetired', value: 'DECOMMISSIONED' },
 ]
@@ -69,6 +73,98 @@ const Devices = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [viewDevice, setViewDevice] = useState(null)
+  
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editDevice, setEditDevice] = useState(null)
+  const { register, handleSubmit, reset } = useForm()
+
+  const [showRetireModal, setShowRetireModal] = useState(false)
+  const [showRestoreModal, setShowRestoreModal] = useState(false)
+  const [actionDevice, setActionDevice] = useState(null)
+  const { register: retireRegister, handleSubmit: retireHandleSubmit, reset: retireReset, formState: { errors: retireErrors } } = useForm()
+  const { register: restoreRegister, handleSubmit: restoreHandleSubmit, reset: restoreReset } = useForm()
+
+  const { data: deptsData } = useQuery({
+    queryKey: ['departmentOptions'],
+    queryFn: () => departmentsService.getDepartmentOptions()
+  })
+  const departments = deptsData?.data || []
+
+  const invalidateDevices = () => {
+    queryClient.invalidateQueries({ queryKey: ['devices'] })
+    queryClient.invalidateQueries({ queryKey: ['deviceStats'] })
+  }
+
+  const updateMutation = useMutation({
+    mutationFn: (data) => deviceService.updateDevice(editDevice.id, data),
+    onSuccess: () => {
+      showToast(t('common.toastSaved', 'Saved successfully'), TOAST_COLORS.admin)
+      setShowEditModal(false)
+      invalidateDevices()
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || t('common.toastError', 'An error occurred'), TOAST_COLORS.error)
+    }
+  })
+
+  const retireMutation = useMutation({
+    mutationFn: ({ id, reason }) => deviceService.retireDevice(id, reason),
+    onSuccess: () => {
+      showToast('Device retired successfully', TOAST_COLORS.admin)
+      setShowRetireModal(false)
+      invalidateDevices()
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Failed to retire device', TOAST_COLORS.error)
+    }
+  })
+
+  const restoreMutation = useMutation({
+    mutationFn: ({ id, status }) => deviceService.restoreDevice(id, status),
+    onSuccess: () => {
+      showToast('Device restored successfully', TOAST_COLORS.admin)
+      setShowRestoreModal(false)
+      invalidateDevices()
+    },
+    onError: (err) => {
+      showToast(err.response?.data?.message || 'Failed to restore device', TOAST_COLORS.error)
+    }
+  })
+
+  const openEdit = useCallback((row) => {
+    setEditDevice(row)
+    reset({
+      name: row.name,
+      category: row.category,
+      serialNumber: row.serialNumber,
+      departmentId: row.departmentId,
+      purchaseDate: row.purchaseDate ? row.purchaseDate.split('T')[0] : '',
+      notes: row.notes || ''
+    })
+    setShowEditModal(true)
+  }, [reset])
+
+  const openRetire = useCallback((row) => {
+    setActionDevice(row)
+    retireReset({ reason: '' })
+    setShowRetireModal(true)
+  }, [retireReset])
+
+  const openRestore = useCallback((row) => {
+    setActionDevice(row)
+    restoreReset({ status: 'OPERATIONAL' })
+    setShowRestoreModal(true)
+  }, [restoreReset])
+
+  const onEditSubmit = (data) => {
+    const payload = { ...data }
+    if (payload.purchaseDate) {
+      payload.purchaseDate = new Date(payload.purchaseDate).toISOString()
+    } else {
+      payload.purchaseDate = undefined
+    }
+    updateMutation.mutate(payload)
+  }
 
   // Hardcode categories for now, or fetch dynamically if needed
   const categories = ['Respiratory', 'Monitoring', 'Resuscitation', 'Pumps', 'Other']
@@ -116,15 +212,46 @@ const Devices = () => {
     { key: 'lastPmDate', label: t('devices.lastPM'), render: (val) => formatDate(val) },
     { key: 'nextPmDate', label: t('devices.nextPM'), render: (val) => formatDate(val) },
     { key: 'actions', label: t('devices.actions'), render: (_, row) => (
-      <button type="button" onClick={(e) => { e.stopPropagation(); openDevice(row) }}
-        className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      </button>
+      <div className="flex items-center gap-2">
+        {/* View */}
+        <button type="button" onClick={(e) => { e.stopPropagation(); openDevice(row) }}
+          className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          title="View details">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+        {/* Edit — disabled for decommissioned */}
+        <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(row) }}
+          disabled={row.status === 'DECOMMISSIONED'}
+          className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[#3B72F6] hover:bg-blue-50 dark:hover:bg-[rgba(59,114,246,0.1)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title={row.status === 'DECOMMISSIONED' ? 'Restore device to edit' : 'Edit device'}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+          </svg>
+        </button>
+        {/* Retire / Restore */}
+        {row.status === 'DECOMMISSIONED' ? (
+          <button type="button" onClick={(e) => { e.stopPropagation(); openRestore(row) }}
+            className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-[rgba(16,185,129,0.1)] transition-colors"
+            title="Restore device">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+          </button>
+        ) : (
+          <button type="button" onClick={(e) => { e.stopPropagation(); openRetire(row) }}
+            className="w-7 h-7 rounded-md bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-[rgba(239,68,68,0.1)] transition-colors"
+            title="Retire device">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v.375c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+          </button>
+        )}
+      </div>
     ) },
-  ], [openDevice, t])
+  ], [openDevice, openEdit, openRetire, openRestore, t])
 
   const handleTab = (value) => { setActiveTab(value); setStatusFilter(''); setCurrentPage(1) }
 
@@ -270,6 +397,116 @@ const Devices = () => {
             <div key={label}><div className="text-[0.75rem] text-[var(--text-muted)]">{label}</div><div className="text-[var(--text-primary)] font-semibold mt-0.5">{val}</div></div>
           ))}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={showEditModal && !!editDevice}
+        onClose={() => setShowEditModal(false)}
+        title={t('devices.editDevice', 'Edit Device')}
+        maxWidth="480px"
+        footer={
+          <>
+            <ModalCancelBtn onClick={() => setShowEditModal(false)}>{t('common.cancel', 'Cancel')}</ModalCancelBtn>
+            <ModalPrimaryBtn type="submit" form="edit-device-form" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? t('common.loading', 'Loading...') : t('common.save', 'Save Changes')}
+            </ModalPrimaryBtn>
+          </>
+        }
+      >
+        <form id="edit-device-form" onSubmit={handleSubmit(onEditSubmit)} className="flex flex-col gap-4 mt-2">
+          <InputField label={t('devices.deviceName', 'Device Name')} {...register('name', { required: true })} required />
+          <div className="grid grid-cols-2 gap-4">
+            <SelectField label={t('devices.category', 'Category')} {...register('category', { required: true })} required options={categories} />
+            <InputField label={t('devices.serialNo', 'Serial Number')} {...register('serialNumber', { required: true })} required />
+          </div>
+          <SelectField label={t('devices.department', 'Department')} {...register('departmentId', { required: true })} required options={departments.map(d => ({ value: d.id, label: d.name }))} />
+          <InputField type="date" label={t('devices.purchaseDate', 'Purchase Date')} {...register('purchaseDate')} />
+          <InputField type="textarea" label={t('devices.notes', 'Notes')} {...register('notes')} />
+        </form>
+      </Modal>
+
+      {/* ── Retire Device Modal ──────────────────────────────── */}
+      <Modal
+        isOpen={showRetireModal && !!actionDevice}
+        onClose={() => setShowRetireModal(false)}
+        title="Retire Device"
+        maxWidth="440px"
+        footer={
+          <>
+            <ModalCancelBtn onClick={() => setShowRetireModal(false)}>Cancel</ModalCancelBtn>
+            <ModalPrimaryBtn
+              type="submit"
+              form="retire-device-form"
+              disabled={retireMutation.isPending}
+              color="#DC2626"
+            >
+              {retireMutation.isPending ? 'Retiring...' : 'Retire Device'}
+            </ModalPrimaryBtn>
+          </>
+        }
+      >
+        <form id="retire-device-form" onSubmit={retireHandleSubmit((data) => retireMutation.mutate({ id: actionDevice.id, reason: data.reason }))} className="flex flex-col gap-4 mt-1">
+          {/* Warning notice */}
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <p className="text-[0.8125rem] font-semibold text-amber-600 dark:text-amber-400 mb-1">Retire Device — {actionDevice?.name}?</p>
+            <p className="text-[0.775rem] text-amber-700 dark:text-amber-300 leading-relaxed">
+              This device will be removed from active maintenance operations.
+              New work orders, fault reports, and preventive maintenance tasks cannot be created until the device is restored.
+              Historical maintenance records will be preserved.
+            </p>
+          </div>
+          <div>
+            <label className="block text-[0.75rem] font-medium text-[var(--text-secondary)] mb-1">Retirement Reason <span className="text-red-500">*</span></label>
+            <select {...retireRegister('reason', { required: 'Reason is required' })} className={clsx(selectCls, 'w-full h-9')}>
+              <option value="">Select a reason...</option>
+              <option value="Beyond economical repair">Beyond economical repair</option>
+              <option value="End of lifecycle">End of lifecycle</option>
+              <option value="Replaced by new equipment">Replaced by new equipment</option>
+              <option value="Obsolete technology">Obsolete technology</option>
+              <option value="Safety concerns">Safety concerns</option>
+            </select>
+            {retireErrors.reason && <p className="mt-1 text-[0.75rem] text-red-500">{retireErrors.reason.message}</p>}
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Restore Device Modal ──────────────────────────────── */}
+      <Modal
+        isOpen={showRestoreModal && !!actionDevice}
+        onClose={() => setShowRestoreModal(false)}
+        title="Restore Device"
+        maxWidth="440px"
+        footer={
+          <>
+            <ModalCancelBtn onClick={() => setShowRestoreModal(false)}>Cancel</ModalCancelBtn>
+            <ModalPrimaryBtn type="submit" form="restore-device-form" disabled={restoreMutation.isPending}>
+              {restoreMutation.isPending ? 'Restoring...' : 'Restore Device'}
+            </ModalPrimaryBtn>
+          </>
+        }
+      >
+        <form id="restore-device-form" onSubmit={restoreHandleSubmit((data) => restoreMutation.mutate({ id: actionDevice.id, status: data.status }))} className="flex flex-col gap-4 mt-1">
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+            <p className="text-[0.8125rem] font-semibold text-emerald-600 dark:text-emerald-400 mb-1">Restore — {actionDevice?.name}</p>
+            <p className="text-[0.775rem] text-emerald-700 dark:text-emerald-300 leading-relaxed">
+              Confirm that this device has been inspected and is ready to re-enter active maintenance operations.
+              Select its current operational condition below.
+            </p>
+          </div>
+          <div>
+            <label className="block text-[0.75rem] font-medium text-[var(--text-secondary)] mb-1">Current Device Condition <span className="text-red-500">*</span></label>
+            <div className="flex gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" {...restoreRegister('status', { required: true })} value="OPERATIONAL" className="accent-[#3B72F6]" />
+                <span className="text-[0.8125rem] text-[var(--text-primary)]">Operational</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" {...restoreRegister('status', { required: true })} value="FAULTY" className="accent-[#3B72F6]" />
+                <span className="text-[0.8125rem] text-[var(--text-primary)]">Faulty</span>
+              </label>
+            </div>
+          </div>
+        </form>
       </Modal>
     </div>
   )

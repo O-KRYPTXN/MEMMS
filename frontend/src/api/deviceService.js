@@ -61,6 +61,22 @@ const deviceService = {
   deleteDevice: async (id) => {
     const response = await axiosInstance.delete(`/devices/${id}`);
     return response.data;
+  },
+
+  /**
+   * Retire a device (Admin only) — sets status to DECOMMISSIONED with a required reason.
+   */
+  retireDevice: async (id, reason) => {
+    const response = await axiosInstance.patch(`/devices/${id}/retire`, { reason });
+    return response.data;
+  },
+
+  /**
+   * Restore a decommissioned device (Admin only) — requires an explicit target status.
+   */
+  restoreDevice: async (id, status) => {
+    const response = await axiosInstance.patch(`/devices/${id}/restore`, { status });
+    return response.data;
   }
 };
 

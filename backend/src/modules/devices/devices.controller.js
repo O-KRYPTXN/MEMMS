@@ -17,7 +17,7 @@ export const getDevices = catchAsync(async (req, res) => {
     filters.departmentId = req.user.departmentId;
   }
 
-  const result = await deviceService.getAllDevices(page, limit, filters);
+  const result = await deviceService.getAllDevices(page, limit, filters, req.user.role);
 
   res.status(200).json(result);
 });
@@ -77,5 +77,23 @@ export const deleteDevice = catchAsync(async (req, res) => {
 
   res.status(200).json({
     message: 'Device deleted successfully'
+  });
+});
+
+export const retireDevice = catchAsync(async (req, res) => {
+  const device = await deviceService.retireDevice(req.params.id, req.body.reason, req.user.id);
+
+  res.status(200).json({
+    message: 'Device retired successfully',
+    data: device
+  });
+});
+
+export const restoreDevice = catchAsync(async (req, res) => {
+  const device = await deviceService.restoreDevice(req.params.id, req.body.status, req.user.id);
+
+  res.status(200).json({
+    message: 'Device restored successfully',
+    data: device
   });
 });

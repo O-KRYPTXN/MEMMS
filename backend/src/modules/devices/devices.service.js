@@ -1,10 +1,10 @@
 import prisma from '../../../prisma/prisma.js';
 import { formatPaginatedResponse } from '../../utils/pagination.util.js';
-
 import { AppError } from '../../utils/AppError.js';
 import { logAction } from '../auditLogs/auditLogs.service.js';
 import { emitToRoles } from '../../socket/socket.service.js';
 import { SOCKET_EVENTS } from '../../socket/socket.events.js';
+import { assertDeviceNotDecommissioned } from './devices.utils.js';
 
 /**
  * Generate a unique Asset Code (e.g. DEV-0001)
@@ -28,14 +28,22 @@ const generateAssetCode = async () => {
 
 /**
  * Get all devices with pagination, filtering, and search
+ * @param {string} [role] - Caller's role; DEPARTMENT and TECHNICIAN never see DECOMMISSIONED devices.
  */
-export const getAllDevices = async (page, limit, filters) => {
+export const getAllDevices = async (page, limit, filters, role) => {
   const { category, status, departmentId, search, all } = filters;
   const where = {};
 
   if (category) where.category = category;
   if (status) where.status = status;
   if (departmentId) where.departmentId = departmentId;
+
+  // DEPARTMENT and TECHNICIAN must never see decommissioned devices.
+  // Apply the filter only when the caller hasn't already requested a specific status
+  // (so the "Retired" tab works for Admin/Supervisor but is blocked for these roles).
+  if (['DEPARTMENT', 'TECHNICIAN'].includes(role) && !status) {
+    where.status = { not: 'DECOMMISSIONED' };
+  }
 
   if (search) {
     where.OR = [
@@ -203,13 +211,16 @@ export const updateDevice = async (id, data, executorId) => {
 };
 
 /**
- * Update device status
+ * Update device status (manual — blocked for decommissioned devices)
  */
 export const updateDeviceStatus = async (id, status, executorId) => {
   const device = await prisma.device.findUnique({ where: { id } });
   if (!device) {
     throw new AppError('Device not found', 404);
   }
+
+  // Cannot manually change status of a decommissioned device — use restoreDevice instead
+  assertDeviceNotDecommissioned(device);
 
   const updated = await prisma.device.update({
     where: { id },
@@ -223,7 +234,7 @@ export const updateDeviceStatus = async (id, status, executorId) => {
 
   await logAction({
     userId: executorId,
-    action: status === 'DECOMMISSIONED' ? 'ARCHIVED' : 'STATUS_CHANGED',
+    action: 'STATUS_CHANGED',
     entity: 'Device',
     entityId: device.assetCode,
     oldValue: { status: device.status },
@@ -232,6 +243,84 @@ export const updateDeviceStatus = async (id, status, executorId) => {
 
   // Notify supervisors, admins, and technicians of device status change
   emitToRoles(['SUPERVISOR', 'ADMIN', 'TECHNICIAN'], SOCKET_EVENTS.DEVICE_UPDATED, { deviceId: id, status });
+
+  return updated;
+};
+
+/**
+ * Retire a device — sets status to DECOMMISSIONED with audit metadata.
+ * Only operates on non-decommissioned devices.
+ */
+export const retireDevice = async (id, reason, executorId) => {
+  const device = await prisma.device.findUnique({ where: { id } });
+  if (!device) {
+    throw new AppError('Device not found', 404);
+  }
+
+  if (device.status === 'DECOMMISSIONED') {
+    throw new AppError('Device is already decommissioned.', 400);
+  }
+
+  const updated = await prisma.device.update({
+    where: { id },
+    data: {
+      status: 'DECOMMISSIONED',
+      retiredAt: new Date(),
+      retiredReason: reason,
+      retiredById: executorId
+    },
+    include: { department: { select: { id: true, name: true } } }
+  });
+
+  await logAction({
+    userId: executorId,
+    action: 'DEVICE_DECOMMISSIONED',
+    entity: 'Device',
+    entityId: device.assetCode,
+    oldValue: { status: device.status },
+    newValue: { status: 'DECOMMISSIONED', retiredReason: reason }
+  });
+
+  emitToRoles(['SUPERVISOR', 'ADMIN', 'TECHNICIAN'], SOCKET_EVENTS.DEVICE_UPDATED, { deviceId: id });
+
+  return updated;
+};
+
+/**
+ * Restore a decommissioned device to an explicitly chosen status.
+ * The admin must confirm the device's current condition (OPERATIONAL or FAULTY).
+ */
+export const restoreDevice = async (id, newStatus, executorId) => {
+  const device = await prisma.device.findUnique({ where: { id } });
+  if (!device) {
+    throw new AppError('Device not found', 404);
+  }
+
+  if (device.status !== 'DECOMMISSIONED') {
+    throw new AppError('Device is not decommissioned.', 400);
+  }
+
+  const updated = await prisma.device.update({
+    where: { id },
+    data: {
+      status: newStatus,
+      retiredAt: null,
+      retiredReason: null,
+      retiredById: null
+    },
+    include: { department: { select: { id: true, name: true } } }
+  });
+
+  await logAction({
+    userId: executorId,
+    action: 'DEVICE_RESTORED',
+    entity: 'Device',
+    entityId: device.assetCode,
+    oldValue: { status: 'DECOMMISSIONED' },
+    newValue: { status: newStatus }
+  });
+
+  emitToRoles(['SUPERVISOR', 'ADMIN', 'TECHNICIAN'], SOCKET_EVENTS.DEVICE_UPDATED, { deviceId: id });
 
   return updated;
 };

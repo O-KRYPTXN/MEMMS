@@ -1,11 +1,11 @@
 import prisma from '../../../prisma/prisma.js';
 import { formatPaginatedResponse } from '../../utils/pagination.util.js';
-
 import { AppError } from '../../utils/AppError.js';
 import { logAction } from '../auditLogs/auditLogs.service.js';
 import { createAlert } from '../alerts/alerts.service.js';
 import { emitToRoles, emitToRooms } from '../../socket/socket.service.js';
 import { SOCKET_EVENTS } from '../../socket/socket.events.js';
+import { assertDeviceNotDecommissioned } from '../devices/devices.utils.js';
 
 /**
  * Generate a unique Work Order Number (e.g. WO-2026-0001)
@@ -53,6 +53,9 @@ export const createWorkOrder = async (data, user) => {
   if (!device) {
     throw new AppError('Device not found', 404);
   }
+
+  // Block work orders for decommissioned devices
+  assertDeviceNotDecommissioned(device);
 
   // Validate fault report if provided
   if (faultReportId) {

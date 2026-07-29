@@ -1,8 +1,8 @@
 import prisma from '../../../prisma/prisma.js';
-
 import { AppError } from '../../utils/AppError.js';
 import { logAction } from '../auditLogs/auditLogs.service.js';
 import { createAlert } from '../alerts/alerts.service.js';
+import { assertDeviceNotDecommissioned } from '../devices/devices.utils.js';
 
 export const getPMTasks = async (query = {}) => {
   const { status, type, departmentId, techId, limit } = query;
@@ -67,6 +67,13 @@ export const getPMTaskById = async (id) => {
 };
 
 export const createPMTask = async (data, creatorId) => {
+  // Verify device exists and is not decommissioned
+  const device = await prisma.device.findUnique({ where: { id: data.deviceId } });
+  if (!device) {
+    throw new AppError('Device not found', 404);
+  }
+  assertDeviceNotDecommissioned(device);
+
   // Generate a unique PM Number
   const count = await prisma.pMTask.count();
   const year = new Date().getFullYear();

@@ -4,6 +4,7 @@ import { AppError } from '../../utils/AppError.js';
 import { createAlert } from '../alerts/alerts.service.js';
 import { emitToRoles } from '../../socket/socket.service.js';
 import { SOCKET_EVENTS } from '../../socket/socket.events.js';
+import { assertDeviceNotDecommissioned } from '../devices/devices.utils.js';
 
 export const createFaultReport = async (data, userId) => {
   const { deviceId, description, urgency } = data;
@@ -17,6 +18,9 @@ export const createFaultReport = async (data, userId) => {
     if (!device) {
       throw new AppError('Device not found', 404);
     }
+
+    // Block fault reports for decommissioned devices
+    assertDeviceNotDecommissioned(device);
 
     // 2. Check if user's department matches device's department (bypass for technicians/admins)
     const user = await tx.user.findUnique({ where: { id: userId } });

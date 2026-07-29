@@ -185,6 +185,7 @@ model User {
   createdPMTasks  PMTask[] @relation("CreatedByUser")
 
   submittedFaultReports FaultReport[]
+  retiredDevices        Device[]      @relation("RetiredByUser")
 
   userAlerts UserAlert[]
 
@@ -213,6 +214,12 @@ model Device {
   notes        String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+
+  // ── Retirement audit ───────────────────────────────────
+  retiredAt     DateTime?
+  retiredReason String?
+  retiredById   String?
+  retiredBy     User?     @relation("RetiredByUser", fields: [retiredById], references: [id])
 
   // ── FK: Department ─────────────────────────────────────
   departmentId String
