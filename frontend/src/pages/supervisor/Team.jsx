@@ -81,7 +81,8 @@ export default function SupervisorTeam() {
         name: tech.name,
         initials,
         title: t('roles.TECHNICIAN'),
-        color: isOnline ? '#14B8A6' : '#5A6A85',
+        isSuspended: tech.isSuspended,
+        color: tech.isSuspended ? '#EF4444' : isOnline ? '#14B8A6' : '#5A6A85',
         status: isBusy ? 'busy' : isOnline ? 'online' : 'offline',
         phone: (tech.phone && tech.phone.trim() !== '') ? tech.phone : t('supTeam.noPhone', 'No phone provided'),
         email: tech.email,
@@ -185,7 +186,14 @@ export default function SupervisorTeam() {
                 <div className="text-[0.95rem] font-bold text-[var(--text-primary)] truncate">{tItem.name}</div>
                 <div className="text-[0.75rem] text-[#14B8A6] truncate mt-0.5" title={tItem.email}>{tItem.email}</div>
                 <div className="text-[0.75rem] text-[var(--text-secondary)] truncate mt-0.5">{tItem.phone}</div>
-                <div className="mt-2"><StatusPill status={tItem.status} /></div>
+                <div className="mt-2 flex items-center gap-2">
+                  <StatusPill status={tItem.status} />
+                  {tItem.isSuspended && (
+                    <span className="px-2 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-[0.65rem] font-bold uppercase tracking-wider text-red-500">
+                      Suspended
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -218,7 +226,19 @@ export default function SupervisorTeam() {
             </div>
 
             <div className="border-t border-[var(--border)] p-3 px-5 flex gap-2">
-              <button onClick={() => { setActiveTech(tItem); setShowAssignModal(true) }} className="flex-1 py-1.5 rounded-lg bg-[rgba(20,184,166,0.1)] border border-teal-700/30 dark:border-[rgba(20,184,166,0.25)] text-[#14B8A6] text-[12.5px] font-bold hover:bg-[rgba(20,184,166,0.15)] transition-colors">{t('supTeam.assignTask')}</button>
+              <button
+                onClick={() => { if (!tItem.isSuspended) { setActiveTech(tItem); setShowAssignModal(true) } }}
+                disabled={tItem.isSuspended}
+                title={tItem.isSuspended ? 'Cannot assign tasks to a suspended technician' : undefined}
+                className={clsx(
+                  'flex-1 py-1.5 rounded-lg text-[12.5px] font-bold transition-colors',
+                  tItem.isSuspended
+                    ? 'bg-[var(--bg-input)] border border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed opacity-50'
+                    : 'bg-[rgba(20,184,166,0.1)] border border-teal-700/30 dark:border-[rgba(20,184,166,0.25)] text-[#14B8A6] hover:bg-[rgba(20,184,166,0.15)]'
+                )}
+              >
+                {t('supTeam.assignTask')}
+              </button>
             </div>
           </Panel>
         ))}

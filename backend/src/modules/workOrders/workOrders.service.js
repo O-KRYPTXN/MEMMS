@@ -79,6 +79,13 @@ export const createWorkOrder = async (data, user) => {
     }
   }
 
+  // Block assignment to suspended technicians
+  if (assignedToId) {
+    const tech = await prisma.user.findUnique({ where: { id: assignedToId }, select: { isSuspended: true, name: true } });
+    if (!tech) throw new AppError('Assigned technician not found', 404);
+    if (tech.isSuspended) throw new AppError(`${tech.name} is suspended and cannot be assigned work orders`, 400);
+  }
+
   const workOrderNumber = await generateWorkOrderNumber();
 
   const wo = await prisma.$transaction(async (tx) => {
@@ -476,6 +483,11 @@ export const updateWorkOrder = async (id, data, user) => {
 
     // Handle re-assignment alert
     if (data.assignedToId && data.assignedToId !== wo.assignedToId) {
+      // Block reassignment to suspended technicians
+      const tech = await prisma.user.findUnique({ where: { id: data.assignedToId }, select: { isSuspended: true, name: true } });
+      if (!tech) throw new AppError('Assigned technician not found', 404);
+      if (tech.isSuspended) throw new AppError(`${tech.name} is suspended and cannot be assigned work orders`, 400);
+
       await createAlert({
         type: 'INFO',
         title: 'Work Order Reassigned',
