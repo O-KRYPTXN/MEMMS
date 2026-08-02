@@ -90,6 +90,7 @@ export const getUserForMiddleware = async (id) => {
       isActive: true,
       isSuspended: true,
       requiresPasswordChange: true,
+      passwordChangedAt: true,
     },
   });
 
@@ -248,7 +249,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash, requiresPasswordChange: false }
+    data: { passwordHash, requiresPasswordChange: false, passwordChangedAt: new Date() }
   });
 
   await logAction({

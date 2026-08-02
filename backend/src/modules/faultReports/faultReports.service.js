@@ -154,8 +154,14 @@ export const getFaultReports = async (page, limit, filters, user) => {
 
 export const getFaultReportStats = async (user) => {
   const where = {};
-  if (user.role === 'DEPARTMENT') {
-    where.device = { departmentId: user.departmentId };
+
+  if (user.role === 'DEPARTMENT' && user.departmentId) {
+    // groupBy does not support relation filters — resolve to scalar IDs first
+    const devices = await prisma.device.findMany({
+      where: { departmentId: user.departmentId },
+      select: { id: true },
+    });
+    where.deviceId = { in: devices.map((d) => d.id) };
   }
 
   const grouped = await prisma.faultReport.groupBy({

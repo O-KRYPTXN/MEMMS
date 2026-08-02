@@ -18,5 +18,6 @@ router.use(requireRoles('ADMIN'));
 router.post('/', usersController.createUser);
 router.patch('/:id', usersController.updateUser);
 router.patch('/:id/status', usersController.updateUserStatus);
+router.post('/:id/reset-password', usersController.resetUserPassword);
 
 export default router;

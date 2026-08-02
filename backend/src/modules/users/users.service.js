@@ -302,3 +302,44 @@ export const updateUserStatus = async (id, statusData, executorId) => {
 
   return updated;
 };
+
+/**
+ * Admin reset of a user's password
+ * Sets a temporary password, marks requiresPasswordChange = true,
+ * and stamps passwordChangedAt to invalidate all active JWTs.
+ */
+export const resetUserPassword = async (targetUserId, temporaryPassword, adminId) => {
+  const user = await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+  await prisma.user.update({
+    where: { id: targetUserId },
+    data: {
+      passwordHash,
+      requiresPasswordChange: true,
+      passwordChangedAt: new Date(),
+    },
+  });
+
+  // Audit log — never include the password
+  await logAction({
+    userId: adminId,
+    action: 'PASSWORD_RESET_BY_ADMIN',
+    entity: 'User',
+    entityId: user.email,
+    newValue: { targetUser: user.email, targetName: user.name },
+  });
+
+  // Notify the target user
+  await createAlert({
+    type: 'WARNING',
+    title: 'Password Reset',
+    subtitle:
+      'Your password has been reset by an administrator. Please sign in using the temporary password provided and choose a new password.',
+    userId: targetUserId,
+  });
+};

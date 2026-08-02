@@ -26,6 +26,17 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, user not found' });
       }
 
+      // Invalidate tokens issued before a password change/reset
+      if (req.user.passwordChangedAt) {
+        const passwordChangedTimestamp = Math.floor(req.user.passwordChangedAt.getTime() / 1000);
+        if (decoded.iat < passwordChangedTimestamp) {
+          res.cookie('jwt', '', { httpOnly: true, expires: new Date(0) });
+          return res.status(401).json({
+            message: 'Session expired. Your password was reset. Please log in again.',
+          });
+        }
+      }
+
       // Check if role changed since token was issued
       if (decoded.role && decoded.role !== req.user.role) {
         res.cookie('jwt', '', {

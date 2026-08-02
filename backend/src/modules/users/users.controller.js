@@ -124,3 +124,29 @@ export const updateUserStatus = catchAsync(async (req, res) => {
     throw error;
   }
 });
+
+/**
+ * @desc    Reset a user's password (admin-initiated)
+ * @route   POST /api/users/:id/reset-password
+ * @access  Private (Admin)
+ */
+export const resetUserPassword = catchAsync(async (req, res) => {
+  try {
+    const parsed = userValidation.resetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: formatZodErrors(parsed.error) });
+    }
+
+    await userService.resetUserPassword(req.params.id, parsed.data.temporaryPassword, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. The user will be required to change it on their next login.',
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+    throw error;
+  }
+});

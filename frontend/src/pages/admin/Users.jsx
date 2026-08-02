@@ -10,7 +10,7 @@ import KPICard from '../../components/ui/KPICard';
 import DataTable from '../../components/tables/DataTable';
 import { formatDate } from '../../utils/formatDate';
 import { useTranslation } from 'react-i18next';
-import { getUsers, createUser, updateUser, updateUserStatus } from '../../api/usersService';
+import { getUsers, createUser, updateUser, updateUserStatus, resetUserPassword } from '../../api/usersService';
 import { getDepartments } from '../../api/departmentsService';
 import { getRegistrationRequests, approveRegistration, rejectRegistration } from '../../api/registrationService';
 import { useAuthStore } from '../../store/authStore';
@@ -99,6 +99,10 @@ export default function Users() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [showResetDisclaimerModal, setShowResetDisclaimerModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [confirmTempPassword, setConfirmTempPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [pendingEditData, setPendingEditData] = useState(null);
 
@@ -225,6 +229,27 @@ export default function Users() {
     onError: (err) => showToast(err.response?.data?.message || 'Failed to change status', TOAST_COLORS.error)
   });
   const handleSuspendToggle = () => statusMutation.mutate({ id: selectedUser.id, isSuspended: !selectedUser.isSuspended });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ id, temporaryPassword }) => resetUserPassword(id, temporaryPassword),
+    onSuccess: () => {
+      showToast('Password reset successfully. User will be required to set a new password on next login.', TOAST_COLORS.success);
+      setShowResetPasswordModal(false);
+      setShowEditModal(false);
+      setTempPassword('');
+      setConfirmTempPassword('');
+      setSelectedUser(null);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => showToast(err.response?.data?.message || 'Failed to reset password', TOAST_COLORS.error)
+  });
+
+  const handleResetPasswordSubmit = (e) => {
+    e.preventDefault();
+    if (!tempPassword || tempPassword.length < 8) return;
+    if (tempPassword !== confirmTempPassword) return;
+    resetPasswordMutation.mutate({ id: selectedUser.id, temporaryPassword: tempPassword });
+  };
 
 
   const openAddModal = () => {
@@ -412,6 +437,15 @@ export default function Users() {
         footer={
           <>
             <ModalCancelBtn onClick={() => { setShowAddModal(false); setShowEditModal(false); }}>{t('common.cancel')}</ModalCancelBtn>
+            {showEditModal && selectedUser?.id !== currentUser?.id && (
+              <button
+                type="button"
+                onClick={() => { setShowEditModal(false); setShowResetDisclaimerModal(true); }}
+                className="px-5 py-2 rounded-lg text-[0.8125rem] font-semibold border border-[#EF4444] text-[#EF4444] hover:bg-[rgba(239,68,68,0.1)] transition-colors"
+              >
+                Reset Password
+              </button>
+            )}
             <ModalPrimaryBtn type="submit" form="user-form" color="#3B72F6" disabled={createMutation.isPending || updateMutation.isPending}>
               {createMutation.isPending || updateMutation.isPending ? t('common.loading') : t('common.save')}
             </ModalPrimaryBtn>
@@ -503,6 +537,115 @@ export default function Users() {
           {t('users.suspendConfirmQ', 'Are you sure you want to')} {selectedUser?.isSuspended ? t('users.unsuspend').toLowerCase() : t('users.suspend').toLowerCase()} <strong>{selectedUser?.name}</strong>? 
           {!selectedUser?.isSuspended && t('users.suspendWarning', ' They will immediately lose access to the system and their current session will be terminated.')}
         </p>
+      </Modal>
+
+      {/* Reset Password — Step 1: Disclaimer */}
+      <Modal
+        isOpen={showResetDisclaimerModal}
+        onClose={() => { setShowResetDisclaimerModal(false); }}
+        title="Reset User Password"
+        maxWidth="26rem"
+        footer={
+          <>
+            <ModalCancelBtn onClick={() => setShowResetDisclaimerModal(false)}>Cancel</ModalCancelBtn>
+            <ModalPrimaryBtn
+              color="#EF4444"
+              onClick={() => { setShowResetDisclaimerModal(false); setTempPassword(''); setShowResetPasswordModal(true); }}
+            >
+              Yes, Continue
+            </ModalPrimaryBtn>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.25)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5 text-[#EF4444] shrink-0 mt-0.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-[0.8125rem] text-[#EF4444] font-medium leading-relaxed">
+              You are about to reset the password for <strong>{selectedUser?.name}</strong>.
+            </p>
+          </div>
+          <ul className="text-[0.8125rem] text-[var(--text-secondary)] flex flex-col gap-1.5 pl-1">
+            <li className="flex items-start gap-2"><span className="text-[#F59E0B] mt-0.5">⚠</span> Their current session will be <strong>immediately terminated</strong>.</li>
+            <li className="flex items-start gap-2"><span className="text-[#F59E0B] mt-0.5">⚠</span> They will need to log in with the temporary password you provide.</li>
+            <li className="flex items-start gap-2"><span className="text-[#F59E0B] mt-0.5">⚠</span> They will be <strong>forced to set a new personal password</strong> before accessing the system.</li>
+            <li className="flex items-start gap-2"><span className="text-[#3B72F6] mt-0.5">ℹ</span> This action will be recorded in the audit log.</li>
+          </ul>
+          <p className="text-[0.8125rem] text-[var(--text-muted)]">Do you want to continue?</p>
+        </div>
+      </Modal>
+
+      {/* Reset Password — Step 2: Set Temporary Password */}
+      <Modal
+        isOpen={showResetPasswordModal}
+        onClose={() => { setShowResetPasswordModal(false); setTempPassword(''); setConfirmTempPassword(''); }}
+        title="Set Temporary Password"
+        maxWidth="24rem"
+        footer={
+          <>
+            <ModalCancelBtn onClick={() => { setShowResetPasswordModal(false); setTempPassword(''); setConfirmTempPassword(''); }}>Cancel</ModalCancelBtn>
+            <ModalPrimaryBtn
+              color="#EF4444"
+              form="reset-password-form"
+              type="submit"
+              disabled={resetPasswordMutation.isPending || !tempPassword || tempPassword.length < 8 || tempPassword !== confirmTempPassword}
+            >
+              {resetPasswordMutation.isPending ? 'Resetting…' : 'Confirm Reset'}
+            </ModalPrimaryBtn>
+          </>
+        }
+      >
+        <form id="reset-password-form" onSubmit={handleResetPasswordSubmit} className="flex flex-col gap-4">
+          <p className="text-[0.8125rem] text-[var(--text-secondary)]">
+            Set a temporary password for <strong>{selectedUser?.name}</strong>. Share this with them securely — they will be prompted to change it immediately after logging in.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.75rem] font-semibold text-[var(--text-secondary)] tracking-wide" htmlFor="temp-password-input">
+              Temporary Password <span className="text-[#EF4444]">*</span>
+            </label>
+            <input
+              id="temp-password-input"
+              type="password"
+              value={tempPassword}
+              onChange={(e) => setTempPassword(e.target.value)}
+              minLength={8}
+              maxLength={72}
+              required
+              autoComplete="new-password"
+              placeholder="Min. 8 characters"
+              className="h-[38px] px-3 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] text-[0.8125rem] outline-none focus:border-[#EF4444] transition-colors"
+            />
+            {tempPassword.length > 0 && tempPassword.length < 8 && (
+              <span className="text-[0.75rem] text-[#EF4444]">Password must be at least 8 characters</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.75rem] font-semibold text-[var(--text-secondary)] tracking-wide" htmlFor="confirm-temp-password-input">
+              Confirm Temporary Password <span className="text-[#EF4444]">*</span>
+            </label>
+            <input
+              id="confirm-temp-password-input"
+              type="password"
+              value={confirmTempPassword}
+              onChange={(e) => setConfirmTempPassword(e.target.value)}
+              minLength={8}
+              maxLength={72}
+              required
+              autoComplete="new-password"
+              placeholder="Re-enter the temporary password"
+              className={clsx(
+                'h-[38px] px-3 bg-[var(--bg-input)] border rounded-lg text-[var(--text-primary)] text-[0.8125rem] outline-none transition-colors',
+                confirmTempPassword.length > 0 && tempPassword !== confirmTempPassword
+                  ? 'border-[#EF4444] focus:border-[#EF4444]'
+                  : 'border-[var(--border)] focus:border-[#EF4444]'
+              )}
+            />
+            {confirmTempPassword.length > 0 && tempPassword !== confirmTempPassword && (
+              <span className="text-[0.75rem] text-[#EF4444]">Passwords do not match</span>
+            )}
+          </div>
+        </form>
       </Modal>
     </div>
   );

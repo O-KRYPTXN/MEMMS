@@ -164,6 +164,7 @@ model User {
   isActive          Boolean   @default(true)
   isSuspended       Boolean   @default(false)
   requiresPasswordChange Boolean @default(false)
+  passwordChangedAt      DateTime?               // set on every password change; used to invalidate old JWTs
 
   // Per-user UI preferences (persisted to DB so they survive re-login)
   theme    Theme    @default(DARK)

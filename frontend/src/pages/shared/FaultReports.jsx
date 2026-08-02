@@ -41,6 +41,7 @@ export default function SharedFaultReports() {
   const [reports, setReports] = useState([])
   const [technicians, setTechnicians] = useState([])
   const [activeTab, setActiveTab] = useState('all')
+  const [search, setSearch] = useState('')
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [selectedReport, setSelectedReport] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -82,13 +83,20 @@ export default function SharedFaultReports() {
   }, [socket])
 
   const filtered = useMemo(() => {
+    const q = search.toLowerCase()
     return reports.filter(r => {
-      if (activeTab === 'all') return true
-      return r.status === activeTab
+      const matchTab = activeTab === 'all' || r.status === activeTab
+      const matchSearch = !q || [
+        `FR-${r.id.slice(-4).toUpperCase()}`,
+        r.device?.name,
+        r.device?.department?.name,
+        r.description
+      ].some(v => String(v).toLowerCase().includes(q))
+      return matchTab && matchSearch
     })
-  }, [reports, activeTab])
+  }, [reports, activeTab, search])
 
-  useEffect(() => setCurrentPage(1), [activeTab])
+  useEffect(() => setCurrentPage(1), [activeTab, search])
 
   const counts = useMemo(() => ({
     all: reports.length,
@@ -136,6 +144,13 @@ export default function SharedFaultReports() {
         <div>
           <h1 className="text-[1.25rem] font-bold text-[var(--text-primary)]">{t('nav.faultReports', 'Fault Reports')}</h1>
           <p className="mt-[3px] text-[0.8125rem] text-[var(--text-muted)]">Triage and manage fault reports submitted by departments.</p>
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-[280px] h-[36px] px-3 bg-[var(--bg-input)] border border-[var(--border)] rounded-lg shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-[15px] h-[15px] text-[var(--text-muted)] shrink-0">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0016.803 15.803z" />
+          </svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search', 'Search ID, device, description...')}
+            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[0.8125rem] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
         </div>
       </div>
 

@@ -36,3 +36,13 @@ export const queryUsersSchema = z.object({
   isSuspended: z.enum(['true', 'false']).optional(),
   isActive: z.enum(['true', 'false']).optional(),
 });
+
+export const resetPasswordSchema = z.object({
+  temporaryPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be at most 72 characters')
+    .refine((v) => v === v.trim(), {
+      message: 'Password must not have leading or trailing whitespace',
+    }),
+});

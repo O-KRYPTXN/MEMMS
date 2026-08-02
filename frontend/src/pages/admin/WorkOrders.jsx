@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import InputField from '../../components/forms/InputField'
 import SelectField from '../../components/forms/SelectField'
@@ -14,6 +15,7 @@ import workOrderService from '../../api/workOrderService'
 import * as usersService from '../../api/usersService'
 import deviceService from '../../api/deviceService'
 import { useToastStore, TOAST_COLORS } from '../../store/toastStore'
+import { getDepartments } from '../../api/departmentsService'
 import { useSocket } from '../../context/SocketContext'
 import { SOCKET_EVENTS } from '../../constants/socketEvents'
 
@@ -30,18 +32,7 @@ const TypeBadge = ({ type }) => {
 
 const ROWS_PER_PAGE = 5
 
-const TABS = [
-  { label: 'All', value: '' },
-  { label: 'Open', value: 'open' },
-  { label: 'In Progress', value: 'progress' },
-  { label: 'Waiting Parts', value: 'waiting' },
-  { label: 'Completed', value: 'done' },
-]
 
-const DEPT_OPTS = [
-  ['', 'All'], ['ICU', 'ICU'], ['ER', 'ER'], ['Surgery', 'Surgery'],
-  ['Radiology', 'Radiology'], ['Cardiology', 'Cardiology']
-]
 
 const TYPE_OPTS = [
   ['', 'All'], ['REPAIR', 'Repair'], ['PREVENTIVE_MAINTENANCE', 'Preventive Maintenance'], ['DECOMMISSION', 'Decommission']
@@ -49,7 +40,7 @@ const TYPE_OPTS = [
 
 const STATUS_OPTS = [
   ['', 'All'], ['OPEN', 'Open'], ['IN_PROGRESS', 'In Progress'],
-  ['WAITING_PARTS', 'Waiting Parts'], ['PENDING_APPROVAL', 'Pending Approval'], ['DONE', 'Completed'], ['CANCELLED', 'Cancelled']
+  ['PENDING_APPROVAL', 'Pending Approval'], ['DONE', 'Completed'], ['CANCELLED', 'Cancelled']
 ]
 
 const PRIORITY_OPTS = [
@@ -89,6 +80,15 @@ export default function WorkOrders() {
   const [showFormModal, setShowFormModal] = useState(false)
   const [selectedWO, setSelectedWO] = useState(null)
   const [editingWO, setEditingWO] = useState(null)
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }) => workOrderService.updateWorkOrder(id, { status }),
+    onSuccess: (_, variables) => {
+      showToast(variables.status === 'DONE' ? 'Work order approved' : 'Work order rejected', TOAST_COLORS.success)
+      loadData()
+    },
+    onError: (err) => showToast(err.response?.data?.message || 'Action failed', TOAST_COLORS.error)
+  })
 
   const { register, handleSubmit, reset } = useForm()
 
@@ -131,31 +131,30 @@ export default function WorkOrders() {
     { label: t('common.allStatuses'), value: '' },
     { label: t('workOrders.open'), value: 'OPEN' },
     { label: t('pm.inProgress'), value: 'IN_PROGRESS' },
-    { label: t('workOrders.waitingParts'), value: 'WAITING_PARTS' },
+    { label: t('workOrders.pendingApproval', 'Pending Approval'), value: 'PENDING_APPROVAL' },
     { label: t('pm.completed'), value: 'DONE' },
   ], [t])
 
   const tabCounts = useMemo(() => ({
     '': woList.length,
-    OPEN: woList.filter(w => w.status === 'OPEN' && !w.assignedToId).length,
-    IN_PROGRESS: woList.filter(w => w.status === 'IN_PROGRESS' || (w.status === 'OPEN' && !!w.assignedToId)).length,
-    WAITING_PARTS: woList.filter(w => w.status === 'WAITING_PARTS').length,
+    OPEN: woList.filter(w => w.status === 'OPEN').length,
+    IN_PROGRESS: woList.filter(w => w.status === 'IN_PROGRESS').length,
+    PENDING_APPROVAL: woList.filter(w => w.status === 'PENDING_APPROVAL').length,
     DONE: woList.filter(w => w.status === 'DONE').length,
   }), [woList])
 
+  const { data: deptsData } = useQuery({
+    queryKey: ['departments', 'all'],
+    queryFn: () => getDepartments({ all: true }),
+  })
+  const departments = deptsData?.data || []
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    
-    const checkStatus = (filterVal, wo) => {
-      if (!filterVal) return true
-      if (filterVal === 'OPEN') return wo.status === 'OPEN' && !wo.assignedToId
-      if (filterVal === 'IN_PROGRESS') return wo.status === 'IN_PROGRESS' || (wo.status === 'OPEN' && !!wo.assignedToId)
-      return wo.status === filterVal
-    }
 
     return woList.filter(wo => {
-      const matchTab    = checkStatus(activeTab, wo)
-      const matchStatus = checkStatus(statusFilter, wo)
+      const matchTab    = !activeTab || wo.status === activeTab
+      const matchStatus = !statusFilter || wo.status === statusFilter
       const matchType   = !typeFilter  || wo.type === typeFilter
       const matchAssign = !assignedFilter || wo.assignedToId === assignedFilter
       const matchDept   = !deptFilter  || wo.device?.department?.name === deptFilter
@@ -181,11 +180,9 @@ export default function WorkOrders() {
   const handleStatusFilterChange = (e) => {
     const val = e.target.value
     setStatusFilter(val)
-    if (['', 'OPEN', 'IN_PROGRESS', 'WAITING_PARTS', 'DONE'].includes(val)) {
-      setActiveTab(val)
-    } else {
-      setActiveTab('')
-    }
+    // sync the tab highlight when the dropdown matches a known tab value
+    const tabValues = ['', 'OPEN', 'IN_PROGRESS', 'PENDING_APPROVAL', 'DONE']
+    setActiveTab(tabValues.includes(val) ? val : '')
   }
 
   const columns = useMemo(() => [
@@ -209,9 +206,33 @@ export default function WorkOrders() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
         </button>
+        {row.status === 'PENDING_APPROVAL' && (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); statusMutation.mutate({ id: row.id, status: 'DONE' }) }}
+              disabled={statusMutation.isPending}
+              className="w-7 h-7 rounded-md bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.2)] flex items-center justify-center text-[#10B981] hover:bg-[#10B981] hover:text-white transition-colors"
+              title="Approve Work Order"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-[15px] h-[15px]">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); statusMutation.mutate({ id: row.id, status: 'IN_PROGRESS' }) }}
+              disabled={statusMutation.isPending}
+              className="w-7 h-7 rounded-md bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] flex items-center justify-center text-[#EF4444] hover:bg-[#EF4444] hover:text-white transition-colors"
+              title="Reject Work Order"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-[15px] h-[15px]">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     )},
-  ], [t])
+  ], [t, statusMutation.isPending])
 
   const renderPagination = () => (
     <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border)]">
@@ -325,11 +346,14 @@ export default function WorkOrders() {
           {STATUS_OPTS.map(([v, l]) => <option key={v||'all'} value={v}>{v ? `${t('common.status')}: ${l}` : `${t('common.status')}: ${t('common.allStatuses')}`}</option>)}
         </select>
         <select value={assignedFilter} onChange={e => setAssignedFilter(e.target.value)} className={selectCls}>
-          <option value="">{t('common.allStatuses')}</option>
+          <option value="">{t('workOrders.assignedTo')}: All</option>
           {technicians.map(tItem => <option key={tItem.id} value={tItem.id}>{`${t('workOrders.assignedTo')}: ${tItem.name}`}</option>)}
         </select>
         <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} className={selectCls}>
-          {DEPT_OPTS.map(([v, l]) => <option key={v||'all'} value={v}>{v ? `${t('users.department')}: ${l}` : `${t('users.department')}: All`}</option>)}
+          <option value="">{t('users.department')}: All</option>
+          {departments.map(d => (
+            <option key={d.id} value={d.name}>{`${t('users.department')}: ${d.name}`}</option>
+          ))}
         </select>
       </div>
 

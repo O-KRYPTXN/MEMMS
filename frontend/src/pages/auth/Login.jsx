@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { useAuthStore, getHomeRoute } from '../../store/authStore';
 import { useToastStore, TOAST_COLORS } from '../../store/toastStore';
-import Modal, { ModalCancelBtn, ModalPrimaryBtn } from '../../components/ui/Modal';
 
 const DEMO_ACCOUNTS = {
   'admin@memms.local': { role: 'Admin', password: 'asdfasdf' },
@@ -17,8 +16,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
 
   const { login, isLoading, error, clearError } = useAuthStore();
   const { showToast } = useToastStore();
@@ -34,13 +31,6 @@ export default function Login() {
     }
   };
 
-  const handleForgotSubmit = (e) => {
-    e.preventDefault();
-    if (!resetEmail) return;
-    setShowForgotModal(false);
-    showToast(`Password reset link sent to ${resetEmail}`, TOAST_COLORS.success);
-    setResetEmail('');
-  };
 
   const inputCls = "w-full bg-[#131823] border border-[#1F2A40] rounded-lg text-[#F8FAFC] text-[13px] px-[13px] py-[10px] pl-[36px] outline-none focus:border-[#3B82F6] placeholder:text-[#4A5568] transition-colors";
   const labelCls = "block text-[12px] text-[#94A3B8] font-semibold tracking-wide mb-1.5";
@@ -131,7 +121,7 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center mb-8">
             <label className="flex items-center gap-2 cursor-pointer group">
               <div className="relative w-4 h-4 rounded border border-[#1F2A40] bg-[#131823] group-hover:border-[#3B82F6] transition-colors flex items-center justify-center overflow-hidden">
                 <input
@@ -148,13 +138,6 @@ export default function Login() {
               </div>
               <span className="text-[13px] text-[#94A3B8] select-none">Remember me</span>
             </label>
-            <button
-              type="button"
-              onClick={() => setShowForgotModal(true)}
-              className="text-[13px] text-[#3B82F6] font-semibold hover:text-[#60A5FA] transition-colors focus:outline-none"
-            >
-              Forgot password?
-            </button>
           </div>
 
           <button
@@ -185,44 +168,13 @@ export default function Login() {
           <div className="text-[11px] text-[#94A3B8] font-mono leading-relaxed pl-2">
             admin@memms.local / asdfasdf<br />
             supervisor@memms.local / asdfasdf<br />
+            new.nurse@memms.local / asdfasdf<br />
             tech1@memms.local / asdfasdf<br />
             viewer@memms.local / asdfasdf
           </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      <Modal
-        isOpen={showForgotModal}
-        onClose={() => setShowForgotModal(false)}
-        title="Reset Password"
-        maxWidth="400px"
-        footer={
-          <>
-            <ModalCancelBtn onClick={() => setShowForgotModal(false)} />
-            <ModalPrimaryBtn type="submit" form="forgot-password-form" color="#3B82F6">
-              Send Link
-            </ModalPrimaryBtn>
-          </>
-        }
-      >
-        <p className="text-[13px] text-[#94A3B8] mb-4 mt-2">Enter your registered email and we'll send a reset link.</p>
-        <form id="forgot-password-form" onSubmit={handleForgotSubmit}>
-          <div className="relative">
-            <div className="absolute top-[10px] left-[13px] text-[#5A6A85] pointer-events-none">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[15px] h-[15px]"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
-            </div>
-            <input
-              type="email"
-              value={resetEmail}
-              onChange={e => setResetEmail(e.target.value)}
-              className={inputCls}
-              placeholder="name@hospital.org"
-              required
-            />
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }
